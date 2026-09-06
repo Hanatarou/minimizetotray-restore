@@ -1,0 +1,30 @@
+{
+  "extensionName": {
+    "message": "MinimizeToTray Restore",
+    "description": "Name of the extension, shown in the Add-ons Manager."
+  },
+  "extensionDescription": {
+    "message": "Restores the classic \"minimize to tray\" behavior removed in Thunderbird 154, using the same native Windows OS integration API Thunderbird uses internally. Windows only.",
+    "description": "Description of the extension, shown in the Add-ons Manager."
+  },
+  "optionsStartupLegend": {
+    "message": "Startup",
+    "description": "Fieldset legend on the options page."
+  },
+  "optionsStartMinimizedLabel": {
+    "message": "Start Thunderbird minimized to the tray",
+    "description": "Checkbox label on the options page."
+  },
+  "optionsStartMinimizedHint": {
+    "message": "Applies the next time Thunderbird starts, with no window flash.",
+    "description": "Hint text under the start-minimized checkbox."
+  },
+  "optionsEnableCloseToTrayLabel": {
+    "message": "Also minimize to tray when closing the window (X)",
+    "description": "Checkbox label on the options page."
+  },
+  "optionsEnableCloseToTrayHint": {
+    "message": "Off by default: the close (X) button quits Thunderbird as usual. Turn this on to also enable Thunderbird's native \"Close to Tray\" behavior.",
+    "description": "Hint text under the enable-close-to-tray checkbox."
+  }
+}

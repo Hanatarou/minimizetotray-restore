@@ -1,0 +1,39 @@
+[
+  {
+    "namespace": "MinimizeToTray",
+    "description": "Hides Thunderbird's main window to the Windows system tray on minimize.",
+    "functions": [
+      {
+        "name": "watch",
+        "type": "function",
+        "async": true,
+        "description": "Starts watching every open (and future) mail:3pane window, hiding it to the system tray whenever it is minimized.",
+        "parameters": []
+      },
+      {
+        "name": "startMinimized",
+        "type": "function",
+        "async": true,
+        "description": "Hides the main window to the system tray as soon as it finishes loading. Intended to be called once at extension startup when the user has enabled \"start minimized\".",
+        "parameters": []
+      },
+      {
+        "name": "syncTraySettings",
+        "type": "function",
+        "async": true,
+        "description": "Applies the user's tray preferences to Thunderbird's native mail.closeToTray / mail.closeToTray.startInTray prefs. When startMinimized is on but enableCloseToTray is off, mail.closeToTray is only turned on right before Thunderbird quits (so native start-in-tray fires with zero flash on the next boot) and turned back off once running, so the close (X) button keeps its normal behavior.",
+        "parameters": [
+          { "name": "startMinimized", "type": "boolean" },
+          { "name": "enableCloseToTray", "type": "boolean" }
+        ]
+      },
+      {
+        "name": "restoreMessagePaneStateIfNeeded",
+        "type": "function",
+        "async": true,
+        "description": "Works around a Thunderbird bug where the thread pane / message pane split (the #threadPane element's inline height, in classic layout) gets reset when the window is hidden to tray at startup. Compares the current height against the last known-good snapshot (captured whenever this add-on hides the window) and restores it if they differ.",
+        "parameters": []
+      }
+    ]
+  }
+]
