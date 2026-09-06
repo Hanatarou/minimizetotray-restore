@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.0
+
+- Clean up after yourself: disabling or uninstalling the add-on now resets
+  `mail.closeToTray` and `mail.closeToTray.startInTray` back to their
+  Thunderbird defaults, instead of leaving them stuck "on" as a residue of
+  the add-on's own start-in-tray mechanism. A plain update (not a
+  disable/uninstall) still keeps your settings, as expected.
+
 ## 1.0.0
 
 Initial release.

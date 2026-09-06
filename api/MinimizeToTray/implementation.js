@@ -1,9 +1,14 @@
 const { ExtensionCommon } = ChromeUtils.importESModule(
   "resource://gre/modules/ExtensionCommon.sys.mjs"
 );
+const { AddonManager } = ChromeUtils.importESModule(
+  "resource://gre/modules/AddonManager.sys.mjs"
+);
 // `Services`, `Cc`, `Ci` and `Cr` are already available as globals in this
 // privileged scope. Services.jsm / Services.sys.mjs was removed upstream —
 // importing it manually throws and silently breaks the whole script.
+
+const ADDON_ID = "minimizetotray-restore@example.com";
 
 const CLOSE_TO_TRAY_PREF = "mail.closeToTray";
 const START_IN_TRAY_PREF = "mail.closeToTray.startInTray";
@@ -109,6 +114,7 @@ function restoreMessagePaneStateIfNeeded() {
  */
 let traySettings = { startMinimized: false, enableCloseToTray: false };
 let shutdownHandlerRegistered = false;
+let shutdownObserver = null;
 
 /**
  * Register a one-time-per-session observer that runs right before
@@ -133,21 +139,63 @@ function registerShutdownHandler() {
   }
   shutdownHandlerRegistered = true;
 
-  Services.obs.addObserver(
-    {
-      observe() {
-        const win = Services.wm.getMostRecentWindow(WINDOW_TYPE_MAIL_3PANE);
-        if (win) {
-          captureMessagePaneState(win);
-        }
+  shutdownObserver = {
+    observe() {
+      const win = Services.wm.getMostRecentWindow(WINDOW_TYPE_MAIL_3PANE);
+      if (win) {
+        captureMessagePaneState(win);
+      }
 
-        if (traySettings.startMinimized && !traySettings.enableCloseToTray) {
-          Services.prefs.setBoolPref(CLOSE_TO_TRAY_PREF, true);
-        }
-      },
+      if (traySettings.startMinimized && !traySettings.enableCloseToTray) {
+        Services.prefs.setBoolPref(CLOSE_TO_TRAY_PREF, true);
+      }
     },
-    "quit-application-granted"
+  };
+  Services.obs.addObserver(shutdownObserver, "quit-application-granted");
+}
+
+/**
+ * Reset every native pref this add-on may have touched, back to their
+ * Thunderbird defaults (unset). Called when the add-on is disabled or
+ * uninstalled, so nothing is left behind — e.g. mail.closeToTray staying
+ * stuck "on" from the start-in-tray pref dance, with no add-on left
+ * around to ever turn it back off.
+ */
+function resetNativeTrayPrefs() {
+  Services.prefs.clearUserPref(CLOSE_TO_TRAY_PREF);
+  Services.prefs.clearUserPref(START_IN_TRAY_PREF);
+  Services.prefs.clearUserPref(PANE_SNAPSHOT_PREF);
+  console.info(
+    LOG_PREFIX,
+    "Add-on disabled or uninstalled — reset native tray prefs to defaults."
   );
+}
+
+/**
+ * Listens for this specific add-on being disabled or uninstalled (as
+ * opposed to updated, which also tears down the old version but should NOT
+ * reset the user's settings) and cleans up native prefs at that point.
+ */
+const addonLifecycleListener = {
+  onDisabling(addon) {
+    if (addon.id === ADDON_ID) {
+      resetNativeTrayPrefs();
+    }
+  },
+  onUninstalling(addon) {
+    if (addon.id === ADDON_ID) {
+      resetNativeTrayPrefs();
+    }
+  },
+};
+
+let addonListenerRegistered = false;
+function registerAddonLifecycleListener() {
+  if (addonListenerRegistered) {
+    return;
+  }
+  addonListenerRegistered = true;
+  AddonManager.addAddonListener(addonLifecycleListener);
 }
 
 /**
@@ -346,6 +394,7 @@ var MinimizeToTray = class extends ExtensionCommon.ExtensionAPI {
         async syncTraySettings(startMinimized, enableCloseToTray) {
           traySettings = { startMinimized, enableCloseToTray };
           registerShutdownHandler();
+          registerAddonLifecycleListener();
 
           if (enableCloseToTray) {
             // The user wants native Close to Tray to actually engage during
@@ -369,5 +418,29 @@ var MinimizeToTray = class extends ExtensionCommon.ExtensionAPI {
         },
       },
     };
+  }
+
+  /**
+   * Called when this add-on is shutting down, whether because Thunderbird
+   * itself is quitting, or because the add-on is being disabled, updated,
+   * or uninstalled — isAppShutdown only distinguishes the first case from
+   * the rest. Actual pref cleanup for disable/uninstall (as opposed to a
+   * plain update, which should keep the user's settings) already happened
+   * in addonLifecycleListener above; this just removes the listeners this
+   * script registered, so they don't linger after its scope is gone.
+   */
+  onShutdown(isAppShutdown) {
+    if (isAppShutdown) {
+      return;
+    }
+    if (addonListenerRegistered) {
+      AddonManager.removeAddonListener(addonLifecycleListener);
+      addonListenerRegistered = false;
+    }
+    if (shutdownObserver) {
+      Services.obs.removeObserver(shutdownObserver, "quit-application-granted");
+      shutdownObserver = null;
+      shutdownHandlerRegistered = false;
+    }
   }
 };
