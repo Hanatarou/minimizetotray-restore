@@ -9,32 +9,23 @@ version 154, using the same native Windows OS integration API
 doesn't exist on Linux or macOS builds of Thunderbird — the add-on detects
 the platform and does nothing on non-Windows systems.
 
-## Why this exists
-
-Starting with Thunderbird 154, Mozilla integrated the "Close to Tray"
-add-on natively — but in doing so, removed the ability to minimize to tray
-using the minimize button. See the
-[Mozilla Connect discussion](https://connect.mozilla.org/t5/discussions/restore-minimize-to-tray-in-thunderbird/m-p/136129)
-for context. This add-on restores that missing behavior.
-
 ## Features
 
 - **Minimize to tray** — clicking the minimize button hides Thunderbird to
   the system tray instead of the taskbar.
 - **Start minimized** (optional) — Thunderbird starts hidden in the tray,
-  with no window flash from the second restart onward (see
-  [How it works](#how-it-works)).
+  with no window flash from the second restart onward.
 - **Optional native Close to Tray** — off by default, so the close (X)
-  button keeps quitting Thunderbird as usual. Turn it on if you also want
-  the X button to minimize to tray.
-- Includes a workaround for a
-  [Thunderbird core bug](#known-thunderbird-bug-worked-around) where the
-  message pane / thread pane split resets when the window starts hidden.
+  button keeps quitting Thunderbird as usual.
+- **Tray tooltip with unread counts per account** (e.g.
+  "work: 3\npersonal: 12"), kept correct even through Thunderbird's own
+  native tray icon churn at startup (see below).
+- Works around a Thunderbird core bug where the message pane / thread pane
+  split resets when the window starts hidden.
 
 ## Installation
 
-1. Download the latest `.xpi` from the
-   [Releases](../../releases) page.
+1. Download the latest `.xpi` from the [Releases](../../releases) page.
 2. In Thunderbird: **Tools/hamburger menu → Add-ons and Themes → gear icon
    → Install Add-on From File...** and select the downloaded `.xpi`.
 3. Open the add-on's **Options** to enable "Start minimized" if you want it.
@@ -49,27 +40,24 @@ zip -r -X minimizetotray-restore.xpi manifest.json background.js _locales api op
 
 ## How it works
 
-The add-on uses a
-[WebExtension Experiment](https://webextension-api.thunderbird.net/en/latest/how-to/experiments.html)
-to call `nsIMessengerWindowsIntegration.hideWindow()` — the same internal
-service Thunderbird's own tray integration uses — after converting the
-window to an `nsIBaseWindow` via its `docShell.treeOwner`.
+Uses a [WebExtension Experiment](https://webextension-api.thunderbird.net/en/latest/how-to/experiments.html)
+to call `nsIMessengerWindowsIntegration.hideWindow()` and
+`nsIMessengerOSIntegration.updateUnreadCount()` — the same internal
+services Thunderbird's own tray integration uses.
 
 For "start minimized" with zero flash, the add-on temporarily enables the
 native `mail.closeToTray` / `mail.closeToTray.startInTray` prefs right
-before Thunderbird quits (so Thunderbird's own start-in-tray logic, which
-reads these prefs very early at the next boot, hides the window before it's
-ever painted), then disables `mail.closeToTray` again once running, so the
-close (X) button keeps its normal behavior unless you've explicitly enabled
-"Also minimize to tray when closing".
+before Thunderbird quits, then disables `mail.closeToTray` again once
+running, so the close (X) button keeps its normal behavior unless "Also
+minimize to tray when closing" is explicitly enabled.
 
-### Known Thunderbird bug worked around
-
-Thunderbird has a core bug (reproducible with 100% native settings, no
-add-on involved) where the split between the thread pane and message pane
-resets when the window starts hidden in the tray. This add-on snapshots the
-thread pane's height whenever the window is hidden or closed, and restores
-it live on the next startup.
+For the tray tooltip, Thunderbird's own native `MailNotificationManager`
+independently writes to the same tray icon state, with its own generic
+(non-per-account) tooltip, sometimes several times in a row while folders
+are still loading at startup. Rather than guessing a delay to write after
+it, this add-on patches `MailNotificationManager._updateUnreadCount()`
+directly so the per-account tooltip is re-applied right after each of its
+native writes — cleanly undone on disable/uninstall/update.
 
 ## Author
 

@@ -12,7 +12,7 @@
   "default_locale": "en-US",
   "description": "__MSG_extensionDescription__",
 
-  "version": "1.1.0",
+  "version": "1.2.0",
 
   "author": "Bruno Eduardo",
   "homepage_url": "https://github.com/Hanatarou/minimizetotray-restore",
@@ -24,7 +24,7 @@
     "96": "icons/icon96.png"
   },
 
-  "permissions": ["storage"],
+  "permissions": ["storage", "accountsRead"],
 
   "options_ui": {
     "page": "options/options.html",

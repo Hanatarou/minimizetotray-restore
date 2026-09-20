@@ -4,9 +4,16 @@ const { ExtensionCommon } = ChromeUtils.importESModule(
 const { AddonManager } = ChromeUtils.importESModule(
   "resource://gre/modules/AddonManager.sys.mjs"
 );
+const { setTimeout } = ChromeUtils.importESModule(
+  "resource://gre/modules/Timer.sys.mjs"
+);
 // `Services`, `Cc`, `Ci` and `Cr` are already available as globals in this
 // privileged scope. Services.jsm / Services.sys.mjs was removed upstream —
 // importing it manually throws and silently breaks the whole script.
+// `setTimeout` is NOT a global here either (unlike in a WebExtension
+// background page) — calling it unimported throws ReferenceError, silently
+// swallowed inside an observer callback, which is why the delayed re-apply
+// below never actually ran until this was fixed.
 
 const ADDON_ID = "minimizetotray-restore@example.com";
 
@@ -104,6 +111,94 @@ function restoreMessagePaneStateIfNeeded() {
   } catch (ex) {
     console.error(LOG_PREFIX, "Failed to restore thread pane height.", ex);
   }
+}
+
+/**
+ * The last tooltip pushed by the WebExtension side via updateTrayTooltip().
+ * Re-applied every time we hide the window, and right after Thunderbird's
+ * own MailNotificationManager finishes writing to the tray icon (see
+ * installMailNotificationHook below) — both of which can otherwise leave
+ * our custom per-account tooltip overwritten by its generic one.
+ */
+let cachedTooltip = null;
+
+/**
+ * Thunderbird's native MailNotificationManager
+ * (mailnews/base/src/MailNotificationManager.sys.mjs) independently writes
+ * to the same nsIMessengerOSIntegration.updateUnreadCount() we do — with
+ * its own generic tooltip, no per-account breakdown — in reaction to
+ * folder changes and to the Windows "TaskbarCreated" broadcast (relayed as
+ * the "windows-refresh-badge-tray" observer topic). Confirmed via live API
+ * tracing that it can do this several times in a row right at startup
+ * while folders are still loading, each one able to silently overwrite our
+ * own write. Guessing a fixed delay to write after it never proved
+ * reliable, since its own update is async (it awaits
+ * WinUnreadBadge.updateUnreadCount() first) with no fixed duration.
+ *
+ * Instead of guessing, this patches MailNotificationManager's own
+ * _updateUnreadCount() method (a plain, non-private instance method) so our
+ * tooltip is re-applied immediately after every single one of its native
+ * writes finishes — deterministically, with no timing assumption, no
+ * matter how many times it runs or how long each run takes.
+ */
+let mailNotificationHookInstalled = false;
+let mailNotificationManagerRef = null;
+let originalUpdateUnreadCount = null;
+function installMailNotificationHook() {
+  if (mailNotificationHookInstalled) {
+    return;
+  }
+  try {
+    const { MailNotificationManager } = ChromeUtils.importESModule(
+      "resource:///modules/MailNotificationManager.sys.mjs"
+    );
+    mailNotificationManagerRef = MailNotificationManager;
+    originalUpdateUnreadCount =
+      MailNotificationManager._updateUnreadCount.bind(MailNotificationManager);
+    MailNotificationManager._updateUnreadCount = async function (...args) {
+      const result = await originalUpdateUnreadCount(...args);
+      if (cachedTooltip) {
+        try {
+          const osIntegration = Cc[
+            "@mozilla.org/messenger/osintegration;1"
+          ].getService(Ci.nsIMessengerOSIntegration);
+          osIntegration.updateUnreadCount(
+            cachedTooltip.unreadCount,
+            cachedTooltip.tooltip
+          );
+          console.info(
+            LOG_PREFIX,
+            "Reapplied cached tooltip right after MailNotificationManager's own write."
+          );
+        } catch (ex) {
+          console.error(LOG_PREFIX, "Failed to reapply tooltip.", ex);
+        }
+      }
+      return result;
+    };
+    mailNotificationHookInstalled = true;
+    console.info(LOG_PREFIX, "Hooked MailNotificationManager._updateUnreadCount.");
+  } catch (ex) {
+    console.error(
+      LOG_PREFIX,
+      "Failed to hook MailNotificationManager — falling back to no reapply on its writes.",
+      ex
+    );
+  }
+}
+
+/**
+ * Restore MailNotificationManager's original method, so this add-on leaves
+ * no trace in another module's object once it's disabled/uninstalled/updated.
+ */
+function uninstallMailNotificationHook() {
+  if (!mailNotificationHookInstalled) {
+    return;
+  }
+  mailNotificationManagerRef._updateUnreadCount = originalUpdateUnreadCount;
+  mailNotificationHookInstalled = false;
+  mailNotificationManagerRef = null;
+  originalUpdateUnreadCount = null;
 }
 
 /**
@@ -217,6 +312,19 @@ function hideWindowToTray(win) {
     );
     osIntegration.hideWindow(baseWindow);
     console.info(LOG_PREFIX, "Window hidden to tray.");
+
+    // hideWindow() appears to (re)create the tray icon with the default
+    // "Thunderbird" tooltip, wiping out whatever custom tooltip we'd set —
+    // reassert it right away instead of waiting for the next folder change.
+    if (cachedTooltip) {
+      osIntegration.updateUnreadCount(
+        cachedTooltip.unreadCount,
+        cachedTooltip.tooltip
+      );
+      console.info(LOG_PREFIX, "Reapplied cached tooltip after hiding.");
+    } else {
+      console.info(LOG_PREFIX, "No cached tooltip yet to reapply.");
+    }
   } catch (ex) {
     console.error(LOG_PREFIX, "Failed to hide window to tray.", ex);
   }
@@ -239,6 +347,13 @@ function watchWindow(win) {
 
   win.addEventListener("sizemodechange", () => {
     if (win.windowState === win.STATE_MINIMIZED) {
+      if (isAlreadyHiddenToTray(win)) {
+        console.info(
+          LOG_PREFIX,
+          "Already hidden — skipping redundant sizemodechange hide."
+        );
+        return;
+      }
       console.info(LOG_PREFIX, "Minimize detected, hiding window.");
       hideWindowToTray(win);
     }
@@ -395,6 +510,7 @@ var MinimizeToTray = class extends ExtensionCommon.ExtensionAPI {
           traySettings = { startMinimized, enableCloseToTray };
           registerShutdownHandler();
           registerAddonLifecycleListener();
+          installMailNotificationHook();
 
           if (enableCloseToTray) {
             // The user wants native Close to Tray to actually engage during
@@ -415,6 +531,21 @@ var MinimizeToTray = class extends ExtensionCommon.ExtensionAPI {
         },
         async restoreMessagePaneStateIfNeeded() {
           restoreMessagePaneStateIfNeeded();
+        },
+        async updateTrayTooltip(unreadCount, tooltip) {
+          cachedTooltip = { unreadCount, tooltip };
+          try {
+            const osIntegration = Cc[
+              "@mozilla.org/messenger/osintegration;1"
+            ].getService(Ci.nsIMessengerOSIntegration);
+            osIntegration.updateUnreadCount(unreadCount, tooltip);
+            console.info(
+              LOG_PREFIX,
+              `updateUnreadCount() called natively with count=${unreadCount}.`
+            );
+          } catch (ex) {
+            console.error(LOG_PREFIX, "Failed to update tray tooltip.", ex);
+          }
         },
       },
     };
@@ -442,5 +573,6 @@ var MinimizeToTray = class extends ExtensionCommon.ExtensionAPI {
       shutdownObserver = null;
       shutdownHandlerRegistered = false;
     }
+    uninstallMailNotificationHook();
   }
 };

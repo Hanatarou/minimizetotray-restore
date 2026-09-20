@@ -33,6 +33,16 @@
         "async": true,
         "description": "Works around a Thunderbird bug where the thread pane / message pane split (the #threadPane element's inline height, in classic layout) gets reset when the window is hidden to tray at startup. Compares the current height against the last known-good snapshot (captured whenever this add-on hides the window) and restores it if they differ.",
         "parameters": []
+      },
+      {
+        "name": "updateTrayTooltip",
+        "type": "function",
+        "async": true,
+        "description": "Sets the Windows tray icon's unread count badge and tooltip text, via nsIMessengerOSIntegration.updateUnreadCount() — the same native mechanism Thunderbird's own tray icon uses.",
+        "parameters": [
+          { "name": "unreadCount", "type": "integer" },
+          { "name": "tooltip", "type": "string" }
+        ]
       }
     ]
   }

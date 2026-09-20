@@ -10,6 +10,91 @@
 
 const LOG_PREFIX = "MINIMIZETOTRAY-RESTORE:";
 
+/**
+ * Recursively sum the unread message count of a folder and all of its
+ * subfolders (accounts.list(true) already populates the nested subFolders
+ * tree, so this needs no extra API calls per folder besides getFolderInfo).
+ * getFolderInfo() takes a folder id, not the full folder object.
+ *
+ * @param {object} folder - A real MailFolder (not an account's root
+ *   pseudo-folder — getFolderInfo() doesn't support those).
+ * @returns {Promise<number>}
+ */
+async function sumFolderUnread(folder) {
+  const info = await browser.folders.getFolderInfo(folder.id);
+  let sum = info.unreadMessageCount || 0;
+  for (const sub of folder.subFolders ?? []) {
+    sum += await sumFolderUnread(sub);
+  }
+  return sum;
+}
+
+/**
+ * Build the tray tooltip text: one line per account with unread messages,
+ * e.g. "work: 3\npersonal: 12". Windows' native tooltip is capped around
+ * ~127 characters, so this is naturally limited to accounts that actually
+ * have something to show.
+ */
+async function buildUnreadSummary() {
+  const accounts = await browser.accounts.list(true);
+  const lines = [];
+  let total = 0;
+
+  for (const account of accounts) {
+    // account.rootFolder is a virtual container, not a real folder —
+    // getFolderInfo() doesn't support it, so sum its real subfolders
+    // (Inbox, Sent, etc.) instead.
+    let unread = 0;
+    for (const folder of account.rootFolder.subFolders ?? []) {
+      unread += await sumFolderUnread(folder);
+    }
+    console.info(LOG_PREFIX, `Account "${account.name}": ${unread} unread.`);
+    if (unread > 0) {
+      lines.push(`${account.name}: ${unread}`);
+      total += unread;
+    }
+  }
+
+  return {
+    total,
+    tooltip: lines.length ? lines.join("\n") : "No unread messages",
+  };
+}
+
+/**
+ * Compute and push the tray tooltip immediately, with no debounce.
+ */
+async function pushTooltipNow() {
+  try {
+    const { total, tooltip } = await buildUnreadSummary();
+    console.info(
+      LOG_PREFIX,
+      `Pushing tray tooltip. Total: ${total}. Tooltip: ${JSON.stringify(tooltip)}`
+    );
+    await browser.MinimizeToTray.updateTrayTooltip(total, tooltip);
+  } catch (ex) {
+    console.error(LOG_PREFIX, "Failed to refresh tray tooltip.", ex);
+  }
+}
+
+/**
+ * Unlike a debounce (which cancels the previous pending push whenever a new
+ * event arrives — meant to wait for things to go quiet), this schedules an
+ * independent push for *every* trigger, none of them cancelling each other.
+ * Thunderbird's own MailNotificationManager can recreate the tray icon many
+ * times in a row while folders are still loading at startup (confirmed via
+ * live API tracing); waiting for that churn to "go quiet" was a losing race
+ * against unpredictable timing. Riding along with every single cycle instead
+ * — including whichever one ends up being the last — means our tooltip
+ * reliably lands right after each native update, the final one included.
+ * The short delay just lets that cycle's own async chain
+ * (MailNotificationManager awaits WinUnreadBadge) finish first.
+ */
+const RIDE_ALONG_DELAY_MS = 250;
+function scheduleTooltipRefresh() {
+  setTimeout(pushTooltipNow, RIDE_ALONG_DELAY_MS);
+}
+
 const { os } = await browser.runtime.getPlatformInfo();
 
 if (os === "win") {
@@ -19,6 +104,13 @@ if (os === "win") {
   await browser.MinimizeToTray.restoreMessagePaneStateIfNeeded();
 
   await browser.MinimizeToTray.watch();
+
+  // Keep the tray icon's tooltip showing unread counts per account, ridden
+  // along with every native tray icon update (folder changes, taskbar
+  // refresh) instead of waiting for things to settle — see
+  // scheduleTooltipRefresh() for why.
+  browser.folders.onFolderInfoChanged.addListener(scheduleTooltipRefresh);
+  scheduleTooltipRefresh();
 
   const { startMinimized, enableCloseToTray } = await browser.storage.local.get({
     startMinimized: false,
