@@ -30,14 +30,20 @@ function localizePage() {
 
 localizePage();
 
-const DEFAULTS = { startMinimized: false, enableCloseToTray: false };
+const DEFAULTS = {
+  startMinimized: false,
+  enableCloseToTray: false,
+  showTooltip: true,
+};
 
 const startMinimizedCheckbox = document.getElementById("startMinimized");
 const enableCloseToTrayCheckbox = document.getElementById("enableCloseToTray");
+const showTooltipCheckbox = document.getElementById("showTooltip");
 
 const settings = await browser.storage.local.get(DEFAULTS);
 startMinimizedCheckbox.checked = settings.startMinimized;
 enableCloseToTrayCheckbox.checked = settings.enableCloseToTray;
+showTooltipCheckbox.checked = settings.showTooltip;
 
 async function pushSettings() {
   const current = await browser.storage.local.get(DEFAULTS);
@@ -59,4 +65,12 @@ enableCloseToTrayCheckbox.addEventListener("change", async () => {
     enableCloseToTray: enableCloseToTrayCheckbox.checked,
   });
   await pushSettings();
+});
+
+showTooltipCheckbox.addEventListener("change", async () => {
+  await browser.storage.local.set({
+    showTooltip: showTooltipCheckbox.checked,
+  });
+  // Take effect right away instead of waiting for the next folder change.
+  await browser.runtime.sendMessage({ type: "showTooltipChanged" });
 });

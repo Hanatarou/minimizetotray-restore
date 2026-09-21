@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.3.0
+
+- Added a checkbox to turn the tray tooltip's custom per-account text on/off
+  (Options → Tray icon), taking effect immediately in both directions —
+  turning it off shows Thunderbird's plain default tooltip line right
+  away, and turning it on shows the per-account breakdown right away. In
+  both cases, the tray icon's unread badge keeps using this add-on's own
+  reliably-computed count, rather than falling back to Thunderbird's own
+  native unread-count tracking (observed to not reliably reflect real
+  unread counts for some users) when the custom text is off.
+- Added localization for 15 languages (English, Portuguese (Brazil),
+  Spanish, French, German, Russian, Chinese (Simplified), Hindi, Arabic,
+  Bengali, Urdu, Indonesian, Japanese, Swahili, Turkish) — follows
+  Thunderbird's own UI language automatically, with English as fallback.
+
 ## 1.2.0
 
 - Added a tray icon tooltip showing unread message counts per account

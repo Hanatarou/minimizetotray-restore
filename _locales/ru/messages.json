@@ -1,0 +1,42 @@
+{
+  "extensionName": {
+    "message": "MinimizeToTray Restore",
+    "description": "Name of the extension, shown in the Add-ons Manager."
+  },
+  "extensionDescription": {
+    "message": "Восстанавливает классическое поведение сворачивания в трей, удалённое в Thunderbird 154, используя тот же нативный API интеграции с Windows, который Thunderbird использует внутренне. Только для Windows.",
+    "description": "Description of the extension, shown in the Add-ons Manager."
+  },
+  "optionsStartupLegend": {
+    "message": "Запуск",
+    "description": "Fieldset legend on the options page."
+  },
+  "optionsStartMinimizedLabel": {
+    "message": "Запускать Thunderbird свёрнутым в трей",
+    "description": "Checkbox label on the options page."
+  },
+  "optionsStartMinimizedHint": {
+    "message": "Применяется при следующем запуске Thunderbird, без мигания окна.",
+    "description": "Hint text under the start-minimized checkbox."
+  },
+  "optionsEnableCloseToTrayLabel": {
+    "message": "Также сворачивать в трей при закрытии окна (X)",
+    "description": "Checkbox label on the options page."
+  },
+  "optionsEnableCloseToTrayHint": {
+    "message": "По умолчанию выключено: кнопка закрытия (X) завершает работу Thunderbird как обычно. Включите, чтобы также активировать встроенное поведение Close to Tray в Thunderbird.",
+    "description": "Hint text under the enable-close-to-tray checkbox."
+  },
+  "optionsTrayIconLegend": {
+    "message": "Значок в трее",
+    "description": "Fieldset legend on the options page."
+  },
+  "optionsShowTooltipLabel": {
+    "message": "Показывать количество непрочитанных в подсказке значка",
+    "description": "Checkbox label on the options page."
+  },
+  "optionsShowTooltipHint": {
+    "message": "Отключите, чтобы оставить подсказку значка по умолчанию Thunderbird.",
+    "description": "Hint text under the show-tooltip checkbox."
+  }
+}

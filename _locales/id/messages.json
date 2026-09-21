@@ -4,39 +4,39 @@
     "description": "Name of the extension, shown in the Add-ons Manager."
   },
   "extensionDescription": {
-    "message": "Restores the classic \"minimize to tray\" behavior removed in Thunderbird 154, using the same native Windows OS integration API Thunderbird uses internally. Windows only.",
+    "message": "Memulihkan perilaku klasik \"perkecil ke tray\" yang dihapus di Thunderbird 154, menggunakan API integrasi Windows native yang sama yang digunakan Thunderbird secara internal. Hanya untuk Windows.",
     "description": "Description of the extension, shown in the Add-ons Manager."
   },
   "optionsStartupLegend": {
-    "message": "Startup",
+    "message": "Pemulaian",
     "description": "Fieldset legend on the options page."
   },
   "optionsStartMinimizedLabel": {
-    "message": "Start Thunderbird minimized to the tray",
+    "message": "Mulai Thunderbird dalam keadaan diperkecil ke tray",
     "description": "Checkbox label on the options page."
   },
   "optionsStartMinimizedHint": {
-    "message": "Applies the next time Thunderbird starts, with no window flash.",
+    "message": "Berlaku pada saat Thunderbird berikutnya dimulai, tanpa jendela berkedip.",
     "description": "Hint text under the start-minimized checkbox."
   },
   "optionsEnableCloseToTrayLabel": {
-    "message": "Also minimize to tray when closing the window (X)",
+    "message": "Perkecil juga ke tray saat menutup jendela (X)",
     "description": "Checkbox label on the options page."
   },
   "optionsEnableCloseToTrayHint": {
-    "message": "Off by default: the close (X) button quits Thunderbird as usual. Turn this on to also enable Thunderbird's native \"Close to Tray\" behavior.",
+    "message": "Nonaktif secara default: tombol tutup (X) menutup Thunderbird seperti biasa. Aktifkan untuk juga mengaktifkan perilaku native \"Close to Tray\" Thunderbird.",
     "description": "Hint text under the enable-close-to-tray checkbox."
   },
   "optionsTrayIconLegend": {
-    "message": "Tray icon",
+    "message": "Ikon tray",
     "description": "Fieldset legend on the options page."
   },
   "optionsShowTooltipLabel": {
-    "message": "Show unread count in the tray icon tooltip",
+    "message": "Tampilkan jumlah pesan belum dibaca pada tooltip ikon tray",
     "description": "Checkbox label on the options page."
   },
   "optionsShowTooltipHint": {
-    "message": "Turn off to leave the tray icon's tooltip as Thunderbird's own default.",
+    "message": "Matikan untuk membiarkan tooltip ikon tray sesuai default Thunderbird.",
     "description": "Hint text under the show-tooltip checkbox."
   }
 }

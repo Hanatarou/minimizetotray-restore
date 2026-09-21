@@ -4,39 +4,39 @@
     "description": "Name of the extension, shown in the Add-ons Manager."
   },
   "extensionDescription": {
-    "message": "Restores the classic \"minimize to tray\" behavior removed in Thunderbird 154, using the same native Windows OS integration API Thunderbird uses internally. Windows only.",
+    "message": "Thunderbird 154 で削除された従来の「トレイに最小化」動作を、Thunderbird が内部で使用しているのと同じネイティブ Windows OS 統合 API を使って復元します。Windows 専用。",
     "description": "Description of the extension, shown in the Add-ons Manager."
   },
   "optionsStartupLegend": {
-    "message": "Startup",
+    "message": "起動",
     "description": "Fieldset legend on the options page."
   },
   "optionsStartMinimizedLabel": {
-    "message": "Start Thunderbird minimized to the tray",
+    "message": "Thunderbird をトレイに最小化した状態で起動する",
     "description": "Checkbox label on the options page."
   },
   "optionsStartMinimizedHint": {
-    "message": "Applies the next time Thunderbird starts, with no window flash.",
+    "message": "次回 Thunderbird 起動時から適用され、ウィンドウの点滅はありません。",
     "description": "Hint text under the start-minimized checkbox."
   },
   "optionsEnableCloseToTrayLabel": {
-    "message": "Also minimize to tray when closing the window (X)",
+    "message": "ウィンドウを閉じる（X）ときもトレイに最小化する",
     "description": "Checkbox label on the options page."
   },
   "optionsEnableCloseToTrayHint": {
-    "message": "Off by default: the close (X) button quits Thunderbird as usual. Turn this on to also enable Thunderbird's native \"Close to Tray\" behavior.",
+    "message": "デフォルトではオフ：閉じる（X）ボタンは通常どおり Thunderbird を終了します。オンにすると、Thunderbird 標準の「トレイに閉じる」動作も有効になります。",
     "description": "Hint text under the enable-close-to-tray checkbox."
   },
   "optionsTrayIconLegend": {
-    "message": "Tray icon",
+    "message": "トレイアイコン",
     "description": "Fieldset legend on the options page."
   },
   "optionsShowTooltipLabel": {
-    "message": "Show unread count in the tray icon tooltip",
+    "message": "トレイアイコンのツールチップに未読数を表示する",
     "description": "Checkbox label on the options page."
   },
   "optionsShowTooltipHint": {
-    "message": "Turn off to leave the tray icon's tooltip as Thunderbird's own default.",
+    "message": "オフにすると、トレイアイコンのツールチップは Thunderbird 標準のままになります。",
     "description": "Hint text under the show-tooltip checkbox."
   }
 }

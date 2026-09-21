@@ -4,39 +4,39 @@
     "description": "Name of the extension, shown in the Add-ons Manager."
   },
   "extensionDescription": {
-    "message": "Restores the classic \"minimize to tray\" behavior removed in Thunderbird 154, using the same native Windows OS integration API Thunderbird uses internally. Windows only.",
+    "message": "恢复 Thunderbird 154 中移除的经典“最小化到托盘”行为，使用与 Thunderbird 内部相同的原生 Windows 系统集成 API。仅支持 Windows。",
     "description": "Description of the extension, shown in the Add-ons Manager."
   },
   "optionsStartupLegend": {
-    "message": "Startup",
+    "message": "启动",
     "description": "Fieldset legend on the options page."
   },
   "optionsStartMinimizedLabel": {
-    "message": "Start Thunderbird minimized to the tray",
+    "message": "启动 Thunderbird 时最小化到系统托盘",
     "description": "Checkbox label on the options page."
   },
   "optionsStartMinimizedHint": {
-    "message": "Applies the next time Thunderbird starts, with no window flash.",
+    "message": "从下次 Thunderbird 启动时生效，不会闪烁窗口。",
     "description": "Hint text under the start-minimized checkbox."
   },
   "optionsEnableCloseToTrayLabel": {
-    "message": "Also minimize to tray when closing the window (X)",
+    "message": "关闭窗口（X）时也最小化到托盘",
     "description": "Checkbox label on the options page."
   },
   "optionsEnableCloseToTrayHint": {
-    "message": "Off by default: the close (X) button quits Thunderbird as usual. Turn this on to also enable Thunderbird's native \"Close to Tray\" behavior.",
+    "message": "默认关闭：关闭按钮（X）会像往常一样退出 Thunderbird。启用后也会开启 Thunderbird 原生的“关闭到托盘”行为。",
     "description": "Hint text under the enable-close-to-tray checkbox."
   },
   "optionsTrayIconLegend": {
-    "message": "Tray icon",
+    "message": "托盘图标",
     "description": "Fieldset legend on the options page."
   },
   "optionsShowTooltipLabel": {
-    "message": "Show unread count in the tray icon tooltip",
+    "message": "在托盘图标提示中显示未读数量",
     "description": "Checkbox label on the options page."
   },
   "optionsShowTooltipHint": {
-    "message": "Turn off to leave the tray icon's tooltip as Thunderbird's own default.",
+    "message": "关闭此项以保留 Thunderbird 默认的托盘图标提示。",
     "description": "Hint text under the show-tooltip checkbox."
   }
 }

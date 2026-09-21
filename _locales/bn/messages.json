@@ -1,0 +1,42 @@
+{
+  "extensionName": {
+    "message": "MinimizeToTray Restore",
+    "description": "Name of the extension, shown in the Add-ons Manager."
+  },
+  "extensionDescription": {
+    "message": "Thunderbird 154-এ সরিয়ে দেওয়া ক্লাসিক \"ট্রেতে ছোট করুন\" আচরণ পুনরুদ্ধার করে, একই নেটিভ Windows OS ইন্টিগ্রেশন API ব্যবহার করে যা Thunderbird অভ্যন্তরীণভাবে ব্যবহার করে। শুধুমাত্র Windows।",
+    "description": "Description of the extension, shown in the Add-ons Manager."
+  },
+  "optionsStartupLegend": {
+    "message": "স্টার্টআপ",
+    "description": "Fieldset legend on the options page."
+  },
+  "optionsStartMinimizedLabel": {
+    "message": "Thunderbird ট্রেতে ছোট করে শুরু করুন",
+    "description": "Checkbox label on the options page."
+  },
+  "optionsStartMinimizedHint": {
+    "message": "পরবর্তী বার Thunderbird চালু হলে প্রযোজ্য, উইন্ডো ফ্ল্যাশ ছাড়াই।",
+    "description": "Hint text under the start-minimized checkbox."
+  },
+  "optionsEnableCloseToTrayLabel": {
+    "message": "উইন্ডো বন্ধ করার (X) সময়ও ট্রেতে ছোট করুন",
+    "description": "Checkbox label on the options page."
+  },
+  "optionsEnableCloseToTrayHint": {
+    "message": "ডিফল্টরূপে বন্ধ: বন্ধ (X) বোতাম যথারীতি Thunderbird বন্ধ করে। Thunderbird-এর নেটিভ \"Close to Tray\" আচরণও সক্ষম করতে এটি চালু করুন।",
+    "description": "Hint text under the enable-close-to-tray checkbox."
+  },
+  "optionsTrayIconLegend": {
+    "message": "ট্রে আইকন",
+    "description": "Fieldset legend on the options page."
+  },
+  "optionsShowTooltipLabel": {
+    "message": "ট্রে আইকনের টুলটিপে অপঠিত সংখ্যা দেখান",
+    "description": "Checkbox label on the options page."
+  },
+  "optionsShowTooltipHint": {
+    "message": "ট্রে আইকনের টুলটিপ Thunderbird-এর ডিফল্টে রাখতে এটি বন্ধ করুন।",
+    "description": "Hint text under the show-tooltip checkbox."
+  }
+}

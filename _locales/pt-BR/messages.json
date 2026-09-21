@@ -4,39 +4,39 @@
     "description": "Name of the extension, shown in the Add-ons Manager."
   },
   "extensionDescription": {
-    "message": "Restores the classic \"minimize to tray\" behavior removed in Thunderbird 154, using the same native Windows OS integration API Thunderbird uses internally. Windows only.",
+    "message": "Restaura o comportamento clássico de \"minimizar para a bandeja\" removido no Thunderbird 154, usando a mesma API nativa de integração com o Windows que o próprio Thunderbird usa internamente. Somente Windows.",
     "description": "Description of the extension, shown in the Add-ons Manager."
   },
   "optionsStartupLegend": {
-    "message": "Startup",
+    "message": "Inicialização",
     "description": "Fieldset legend on the options page."
   },
   "optionsStartMinimizedLabel": {
-    "message": "Start Thunderbird minimized to the tray",
+    "message": "Iniciar o Thunderbird minimizado na bandeja",
     "description": "Checkbox label on the options page."
   },
   "optionsStartMinimizedHint": {
-    "message": "Applies the next time Thunderbird starts, with no window flash.",
+    "message": "Aplica-se na próxima vez que o Thunderbird iniciar, sem piscar a janela.",
     "description": "Hint text under the start-minimized checkbox."
   },
   "optionsEnableCloseToTrayLabel": {
-    "message": "Also minimize to tray when closing the window (X)",
+    "message": "Também minimizar para a bandeja ao fechar a janela (X)",
     "description": "Checkbox label on the options page."
   },
   "optionsEnableCloseToTrayHint": {
-    "message": "Off by default: the close (X) button quits Thunderbird as usual. Turn this on to also enable Thunderbird's native \"Close to Tray\" behavior.",
+    "message": "Desligado por padrão: o botão de fechar (X) encerra o Thunderbird normalmente. Ative para também habilitar o comportamento nativo \"Close to Tray\" do Thunderbird.",
     "description": "Hint text under the enable-close-to-tray checkbox."
   },
   "optionsTrayIconLegend": {
-    "message": "Tray icon",
+    "message": "Ícone da bandeja",
     "description": "Fieldset legend on the options page."
   },
   "optionsShowTooltipLabel": {
-    "message": "Show unread count in the tray icon tooltip",
+    "message": "Mostrar contagem de não lidas na dica do ícone da bandeja",
     "description": "Checkbox label on the options page."
   },
   "optionsShowTooltipHint": {
-    "message": "Turn off to leave the tray icon's tooltip as Thunderbird's own default.",
+    "message": "Desative para deixar a dica do ícone da bandeja no padrão do próprio Thunderbird.",
     "description": "Hint text under the show-tooltip checkbox."
   }
 }

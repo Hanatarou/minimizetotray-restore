@@ -1,0 +1,42 @@
+{
+  "extensionName": {
+    "message": "MinimizeToTray Restore",
+    "description": "Name of the extension, shown in the Add-ons Manager."
+  },
+  "extensionDescription": {
+    "message": "يستعيد السلوك الكلاسيكي \"التصغير إلى علبة النظام\" الذي أُزيل في Thunderbird 154، باستخدام نفس واجهة برمجة تكامل Windows الأصلية التي يستخدمها Thunderbird داخليًا. لنظام Windows فقط.",
+    "description": "Description of the extension, shown in the Add-ons Manager."
+  },
+  "optionsStartupLegend": {
+    "message": "بدء التشغيل",
+    "description": "Fieldset legend on the options page."
+  },
+  "optionsStartMinimizedLabel": {
+    "message": "تشغيل Thunderbird مصغّرًا في علبة النظام",
+    "description": "Checkbox label on the options page."
+  },
+  "optionsStartMinimizedHint": {
+    "message": "يُطبَّق في المرة القادمة التي يبدأ فيها Thunderbird، دون وميض للنافذة.",
+    "description": "Hint text under the start-minimized checkbox."
+  },
+  "optionsEnableCloseToTrayLabel": {
+    "message": "التصغير أيضًا إلى علبة النظام عند إغلاق النافذة (X)",
+    "description": "Checkbox label on the options page."
+  },
+  "optionsEnableCloseToTrayHint": {
+    "message": "معطّل افتراضيًا: يقوم زر الإغلاق (X) بإنهاء Thunderbird كالمعتاد. فعّل هذا الخيار لتمكين سلوك \"Close to Tray\" الأصلي في Thunderbird أيضًا.",
+    "description": "Hint text under the enable-close-to-tray checkbox."
+  },
+  "optionsTrayIconLegend": {
+    "message": "أيقونة علبة النظام",
+    "description": "Fieldset legend on the options page."
+  },
+  "optionsShowTooltipLabel": {
+    "message": "إظهار عدد الرسائل غير المقروءة في تلميح أيقونة العلبة",
+    "description": "Checkbox label on the options page."
+  },
+  "optionsShowTooltipHint": {
+    "message": "أوقف هذا الخيار لإبقاء تلميح أيقونة العلبة على الوضع الافتراضي لـ Thunderbird.",
+    "description": "Hint text under the show-tooltip checkbox."
+  }
+}

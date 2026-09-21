@@ -63,15 +63,27 @@ async function buildUnreadSummary() {
 
 /**
  * Compute and push the tray tooltip immediately, with no debounce.
+ *
+ * If the user has turned the custom tooltip text off, this still pushes our
+ * own reliably-computed unread total (with an empty tooltip string, so
+ * Thunderbird shows just its own generic "Thunderbird" line) instead of
+ * leaving the badge to Thunderbird's own native unread-count tracking —
+ * that tracking has been observed to get stuck / not reflect real unread
+ * mail for some users, which would otherwise mean no badge at all while
+ * this setting is off, even with genuine unread messages.
  */
 async function pushTooltipNow() {
   try {
+    const { showTooltip } = await browser.storage.local.get({
+      showTooltip: true,
+    });
     const { total, tooltip } = await buildUnreadSummary();
+    const tooltipToUse = showTooltip ? tooltip : "";
     console.info(
       LOG_PREFIX,
-      `Pushing tray tooltip. Total: ${total}. Tooltip: ${JSON.stringify(tooltip)}`
+      `Pushing tray tooltip. Total: ${total}. Tooltip: ${JSON.stringify(tooltipToUse)}`
     );
-    await browser.MinimizeToTray.updateTrayTooltip(total, tooltip);
+    await browser.MinimizeToTray.updateTrayTooltip(total, tooltipToUse);
   } catch (ex) {
     console.error(LOG_PREFIX, "Failed to refresh tray tooltip.", ex);
   }
@@ -111,6 +123,14 @@ if (os === "win") {
   // scheduleTooltipRefresh() for why.
   browser.folders.onFolderInfoChanged.addListener(scheduleTooltipRefresh);
   scheduleTooltipRefresh();
+
+  // React immediately when the "show tooltip" checkbox is toggled in the
+  // options page, instead of waiting for the next folder change.
+  browser.runtime.onMessage.addListener((message) => {
+    if (message?.type === "showTooltipChanged") {
+      pushTooltipNow();
+    }
+  });
 
   const { startMinimized, enableCloseToTray } = await browser.storage.local.get({
     startMinimized: false,

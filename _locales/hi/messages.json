@@ -1,0 +1,42 @@
+{
+  "extensionName": {
+    "message": "MinimizeToTray Restore",
+    "description": "Name of the extension, shown in the Add-ons Manager."
+  },
+  "extensionDescription": {
+    "message": "Thunderbird 154 में हटाए गए क्लासिक \"ट्रे में छोटा करें\" व्यवहार को पुनर्स्थापित करता है, उसी नेटिव Windows OS एकीकरण API का उपयोग करके जिसे Thunderbird आंतरिक रूप से उपयोग करता है। केवल Windows के लिए।",
+    "description": "Description of the extension, shown in the Add-ons Manager."
+  },
+  "optionsStartupLegend": {
+    "message": "स्टार्टअप",
+    "description": "Fieldset legend on the options page."
+  },
+  "optionsStartMinimizedLabel": {
+    "message": "Thunderbird को ट्रे में छोटा करके शुरू करें",
+    "description": "Checkbox label on the options page."
+  },
+  "optionsStartMinimizedHint": {
+    "message": "अगली बार Thunderbird शुरू होने पर लागू होता है, बिना विंडो फ़्लैश के।",
+    "description": "Hint text under the start-minimized checkbox."
+  },
+  "optionsEnableCloseToTrayLabel": {
+    "message": "विंडो बंद करने (X) पर भी ट्रे में छोटा करें",
+    "description": "Checkbox label on the options page."
+  },
+  "optionsEnableCloseToTrayHint": {
+    "message": "डिफ़ॉल्ट रूप से बंद: बंद (X) बटन हमेशा की तरह Thunderbird को बंद करता है। Thunderbird के नेटिव \"Close to Tray\" व्यवहार को भी सक्षम करने के लिए इसे चालू करें।",
+    "description": "Hint text under the enable-close-to-tray checkbox."
+  },
+  "optionsTrayIconLegend": {
+    "message": "ट्रे आइकन",
+    "description": "Fieldset legend on the options page."
+  },
+  "optionsShowTooltipLabel": {
+    "message": "ट्रे आइकन के टूलटिप में अपठित संख्या दिखाएं",
+    "description": "Checkbox label on the options page."
+  },
+  "optionsShowTooltipHint": {
+    "message": "ट्रे आइकन के टूलटिप को Thunderbird के डिफ़ॉल्ट पर छोड़ने के लिए इसे बंद करें।",
+    "description": "Hint text under the show-tooltip checkbox."
+  }
+}

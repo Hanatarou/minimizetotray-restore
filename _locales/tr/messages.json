@@ -4,39 +4,39 @@
     "description": "Name of the extension, shown in the Add-ons Manager."
   },
   "extensionDescription": {
-    "message": "Restores the classic \"minimize to tray\" behavior removed in Thunderbird 154, using the same native Windows OS integration API Thunderbird uses internally. Windows only.",
+    "message": "Thunderbird 154'te kaldırılan klasik \"sistem tepsisine küçült\" davranışını, Thunderbird'ün dahili olarak kullandığı aynı yerel Windows işletim sistemi entegrasyon API'sini kullanarak geri yükler. Yalnızca Windows.",
     "description": "Description of the extension, shown in the Add-ons Manager."
   },
   "optionsStartupLegend": {
-    "message": "Startup",
+    "message": "Başlangıç",
     "description": "Fieldset legend on the options page."
   },
   "optionsStartMinimizedLabel": {
-    "message": "Start Thunderbird minimized to the tray",
+    "message": "Thunderbird'ü sistem tepsisine küçültülmüş olarak başlat",
     "description": "Checkbox label on the options page."
   },
   "optionsStartMinimizedHint": {
-    "message": "Applies the next time Thunderbird starts, with no window flash.",
+    "message": "Thunderbird bir sonraki başlatıldığında, pencere yanıp sönmeden uygulanır.",
     "description": "Hint text under the start-minimized checkbox."
   },
   "optionsEnableCloseToTrayLabel": {
-    "message": "Also minimize to tray when closing the window (X)",
+    "message": "Pencereyi kapatırken (X) de sistem tepsisine küçült",
     "description": "Checkbox label on the options page."
   },
   "optionsEnableCloseToTrayHint": {
-    "message": "Off by default: the close (X) button quits Thunderbird as usual. Turn this on to also enable Thunderbird's native \"Close to Tray\" behavior.",
+    "message": "Varsayılan olarak kapalı: Kapat (X) düğmesi Thunderbird'ü her zamanki gibi kapatır. Thunderbird'ün yerel \"Close to Tray\" davranışını da etkinleştirmek için bunu açın.",
     "description": "Hint text under the enable-close-to-tray checkbox."
   },
   "optionsTrayIconLegend": {
-    "message": "Tray icon",
+    "message": "Sistem tepsisi simgesi",
     "description": "Fieldset legend on the options page."
   },
   "optionsShowTooltipLabel": {
-    "message": "Show unread count in the tray icon tooltip",
+    "message": "Sistem tepsisi simgesi ipucunda okunmamış sayısını göster",
     "description": "Checkbox label on the options page."
   },
   "optionsShowTooltipHint": {
-    "message": "Turn off to leave the tray icon's tooltip as Thunderbird's own default.",
+    "message": "Sistem tepsisi simgesi ipucunu Thunderbird'ün varsayılanında bırakmak için kapatın.",
     "description": "Hint text under the show-tooltip checkbox."
   }
 }

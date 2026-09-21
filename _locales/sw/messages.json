@@ -4,39 +4,39 @@
     "description": "Name of the extension, shown in the Add-ons Manager."
   },
   "extensionDescription": {
-    "message": "Restores the classic \"minimize to tray\" behavior removed in Thunderbird 154, using the same native Windows OS integration API Thunderbird uses internally. Windows only.",
+    "message": "Inarejesha tabia ya zamani ya \"kupunguza kwenye tray\" iliyoondolewa katika Thunderbird 154, kwa kutumia API ile ile ya asili ya ujumuishaji wa Windows ambayo Thunderbird hutumia ndani. Windows pekee.",
     "description": "Description of the extension, shown in the Add-ons Manager."
   },
   "optionsStartupLegend": {
-    "message": "Startup",
+    "message": "Kuanzisha",
     "description": "Fieldset legend on the options page."
   },
   "optionsStartMinimizedLabel": {
-    "message": "Start Thunderbird minimized to the tray",
+    "message": "Anzisha Thunderbird ikiwa imepunguzwa kwenye tray",
     "description": "Checkbox label on the options page."
   },
   "optionsStartMinimizedHint": {
-    "message": "Applies the next time Thunderbird starts, with no window flash.",
+    "message": "Inatumika wakati Thunderbird itakapoanza tena, bila dirisha kumeta.",
     "description": "Hint text under the start-minimized checkbox."
   },
   "optionsEnableCloseToTrayLabel": {
-    "message": "Also minimize to tray when closing the window (X)",
+    "message": "Pia punguza kwenye tray unapofunga dirisha (X)",
     "description": "Checkbox label on the options page."
   },
   "optionsEnableCloseToTrayHint": {
-    "message": "Off by default: the close (X) button quits Thunderbird as usual. Turn this on to also enable Thunderbird's native \"Close to Tray\" behavior.",
+    "message": "Imezimwa kwa chaguo-msingi: kitufe cha kufunga (X) hufunga Thunderbird kama kawaida. Washa ili pia kuwezesha tabia asilia ya \"Close to Tray\" ya Thunderbird.",
     "description": "Hint text under the enable-close-to-tray checkbox."
   },
   "optionsTrayIconLegend": {
-    "message": "Tray icon",
+    "message": "Aikoni ya tray",
     "description": "Fieldset legend on the options page."
   },
   "optionsShowTooltipLabel": {
-    "message": "Show unread count in the tray icon tooltip",
+    "message": "Onyesha idadi ya ujumbe usiosomwa kwenye kidokezo cha aikoni ya tray",
     "description": "Checkbox label on the options page."
   },
   "optionsShowTooltipHint": {
-    "message": "Turn off to leave the tray icon's tooltip as Thunderbird's own default.",
+    "message": "Zima ili kuacha kidokezo cha aikoni ya tray kama chaguo-msingi la Thunderbird.",
     "description": "Hint text under the show-tooltip checkbox."
   }
 }
