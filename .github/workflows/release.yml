@@ -9,15 +9,21 @@ name: Build XPI
 #
 # Triggers:
 #  - pushing a tag v*            -> builds and attaches to the release
-#  - publishing a release        -> same (covers the release-first flow)
 #  - workflow_dispatch (manual)  -> build-only sanity run, no release upload
+#
+# Deliberately NO "release: published" trigger: creating a release with a new
+# tag fires BOTH the tag-push and the release events, and both runs would
+# build the XPI and race to upload the same two asset names. The zip embeds
+# file timestamps, so the two builds differ byte by byte — the release would
+# end up with the .xpi of one build and the checksum of the other, and the
+# published hash would never match. One event, one build, one upload.
+# The build is also deterministic (fixed mtimes, sorted file list), so
+# rebuilding the same commit reproduces the exact same bytes and hash.
 
 on:
   push:
     tags:
       - "v*"
-  release:
-    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -47,7 +53,12 @@ jobs:
         run: |
           XPI="minimizetotray-restore-v${{ steps.version.outputs.version }}.xpi"
           # Same file set as the documented manual build (no README/CHANGELOG/LICENSE).
-          zip -r -X "$XPI" manifest.json background.js _locales api options icons
+          # Fixed mtimes + sorted file list -> byte-identical XPI for the same
+          # sources, so the checksum matches any rebuild of the same commit.
+          find manifest.json background.js _locales api options icons \
+            -exec touch -d '@946684800' {} +
+          zip -X "$XPI" manifest.json background.js \
+            $(find _locales api options icons -type f | sort)
           sha256sum "$XPI" > "$XPI.sha256.txt"
           echo "Built ${XPI}:"
           cat "$XPI.sha256.txt"
