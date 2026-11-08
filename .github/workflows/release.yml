@@ -1,0 +1,70 @@
+name: Build XPI
+
+# Builds the XPI with the exact recipe documented in the README
+# ("Building from source"), names it after the manifest version and attaches
+# it — together with its SHA-256 checksum file — to the GitHub release.
+#
+#   minimizetotray-restore-v<version>.xpi
+#   minimizetotray-restore-v<version>.xpi.sha256.txt
+#
+# Triggers:
+#  - pushing a tag v*            -> builds and attaches to the release
+#  - publishing a release        -> same (covers the release-first flow)
+#  - workflow_dispatch (manual)  -> build-only sanity run, no release upload
+
+on:
+  push:
+    tags:
+      - "v*"
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read version from manifest.json
+        id: version
+        run: echo "version=$(jq -r .version manifest.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Verify tag matches manifest version
+        if: github.ref_type == 'tag'
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$TAG_VERSION" != "${{ steps.version.outputs.version }}" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match the version in manifest.json (v${{ steps.version.outputs.version }}). Bump manifest.json or fix the tag."
+            exit 1
+          fi
+
+      - name: Build XPI and SHA-256 checksum
+        run: |
+          XPI="minimizetotray-restore-v${{ steps.version.outputs.version }}.xpi"
+          # Same file set as the documented manual build (no README/CHANGELOG/LICENSE).
+          zip -r -X "$XPI" manifest.json background.js _locales api options icons
+          sha256sum "$XPI" > "$XPI.sha256.txt"
+          echo "Built ${XPI}:"
+          cat "$XPI.sha256.txt"
+
+      - name: Upload build artifact (manual runs only)
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: xpi
+          path: |
+            minimizetotray-restore-v*.xpi
+            minimizetotray-restore-v*.xpi.sha256.txt
+
+      - name: Attach XPI + checksum to the release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            minimizetotray-restore-v*.xpi
+            minimizetotray-restore-v*.xpi.sha256.txt
