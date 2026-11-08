@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.3.2
+
+- **Fixed the taskbar badge sync never painting on Thunderbird 154–158 while
+  unread messages exist.** The "badge renderer unavailable → leave the
+  overlay untouched" guard in `pushBadgeToTaskbar()` compared only against
+  `SystemTrayBadgeManager`, which doesn't exist on TB 154–158 by design — so
+  the guard fired there too, swallowing every positive-count push before the
+  legacy 2-argument `WinUnreadBadge.updateUnreadCount()` call (which renders
+  its own badge internally) could ever run. The taskbar badge only started
+  following this add-on's count after the first zero-count push happened to
+  run the signature detection, if that ever happened at all. The guard is now
+  gated on the Thunderbird version (cached `Services.appinfo` major check):
+  only TB 159+ — where the 3-argument call really depends on the external
+  renderer — leaves the overlay untouched when the renderer is missing; on
+  TB 154–158 the legacy fallback is reached immediately, as documented.
+- **Full teardown of window watchers and observers on disable/update.**
+  `onShutdown()` removed the add-on listener, the shutdown observer and the
+  `MailNotificationManager` hook, but the `domwindowopened` observer from
+  `watchAllWindows()` (and the one-shot one from `watchStartup()`, if it had
+  not fired yet) and the per-window `sizemodechange`/`close` listeners were
+  left behind: after disabling, zombie listeners kept hiding windows to the
+  tray on minimize, and after an update the old and new observers piled up.
+  All of them are now tracked (per-window handlers in a `WeakMap`, observers
+  in module variables) and removed on shutdown.
+
 ## 1.3.1
 
 - **Fixed the tray icon unread badge (red dot) and tooltip disappearing after

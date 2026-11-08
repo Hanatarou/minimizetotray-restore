@@ -181,6 +181,20 @@ function getBadgeImage(unreadCount) {
   }
 }
 
+// Whether this Thunderbird is 159 or later (major version check, cached).
+// TB 159+ is where the 3-argument WinUnreadBadge call (external badge image)
+// and SystemTrayBadgeManager exist; on TB 154-158 the legacy 2-argument call
+// renders its own badge internally, so a missing SystemTrayBadgeManager
+// there is normal — not a "renderer unavailable" condition.
+let isTB159Plus = null;
+function getIsTB159Plus() {
+  if (isTB159Plus === null) {
+    const major = parseInt(Services.appinfo.version.split(".")[0], 10);
+    isTB159Plus = Number.isFinite(major) && major >= 159;
+  }
+  return isTB159Plus;
+}
+
 /**
  * Repaint the Windows taskbar overlay badge with our own unread count and
  * tooltip, so the taskbar icon can't disagree with the tray icon.
@@ -227,10 +241,20 @@ async function pushBadgeToTaskbar(unreadCount, tooltip, force = false) {
       // TB 159+ signature. The badge image comes from Thunderbird's own
       // SystemTrayBadgeManager (same renderer the native badge uses).
       const img = effectiveCount > 0 ? getBadgeImage(effectiveCount) : null;
-      if (effectiveCount > 0 && img === null && systemTrayBadgeManager === false) {
-        // The renderer module is unavailable on this Thunderbird build —
-        // leave the overlay untouched instead of passing null, which would
-        // CLEAR a badge the native code may have drawn correctly.
+      if (
+        effectiveCount > 0 &&
+        img === null &&
+        systemTrayBadgeManager === false &&
+        getIsTB159Plus()
+      ) {
+        // The renderer module is unavailable on this TB 159+ build — leave
+        // the overlay untouched instead of passing null, which would CLEAR
+        // a badge the native code may have drawn correctly. On TB 154-158 a
+        // missing SystemTrayBadgeManager is normal (it doesn't exist there):
+        // the legacy 2-argument call below renders its own badge, so this
+        // guard is gated on the version and must not fire there — otherwise
+        // every positive-count push would be swallowed and the legacy
+        // fallback never reached.
         return;
       }
       try {
@@ -612,12 +636,18 @@ function hideWindowToTray(win) {
   }
 }
 
-/** Windows that already have a "sizemodechange" listener attached. */
-const watchedWindows = new WeakSet();
+/**
+ * Per-window listeners attached by watchWindow(), keyed by window, so they
+ * can be removed again on add-on shutdown (disable/update) — a disabled
+ * add-on must not keep zombie listeners hiding windows to the tray, and an
+ * update must not leave duplicate observers behind. WeakMap, so windows
+ * that close are still garbage-collected normally.
+ */
+const watchedWindows = new WeakMap();
 
 /**
- * Attach a "sizemodechange" listener to `win`, hiding it to the tray
- * whenever it gets minimized. Safe to call more than once per window.
+ * Attach "sizemodechange" and "close" listeners to `win`, hiding it to the
+ * tray whenever it gets minimized. Safe to call more than once per window.
  *
  * @param {Window} win
  */
@@ -625,33 +655,57 @@ function watchWindow(win) {
   if (watchedWindows.has(win)) {
     return;
   }
-  watchedWindows.add(win);
 
-  win.addEventListener("sizemodechange", () => {
-    if (win.windowState === win.STATE_MINIMIZED) {
-      if (isAlreadyHiddenToTray(win)) {
-        console.info(
-          LOG_PREFIX,
-          "Already hidden — skipping redundant sizemodechange hide."
-        );
-        return;
+  const handlers = {
+    onSizeModeChange: () => {
+      if (win.windowState === win.STATE_MINIMIZED) {
+        if (isAlreadyHiddenToTray(win)) {
+          console.info(
+            LOG_PREFIX,
+            "Already hidden — skipping redundant sizemodechange hide."
+          );
+          return;
+        }
+        console.info(LOG_PREFIX, "Minimize detected, hiding window.");
+        hideWindowToTray(win);
       }
-      console.info(LOG_PREFIX, "Minimize detected, hiding window.");
-      hideWindowToTray(win);
-    }
-  });
+    },
+    // Capture the pane height whenever the window is about to close — this
+    // fires synchronously on the window itself (unlike quit-application-
+    // granted, which may arrive after the extension's own context has
+    // already started tearing down), and fires whether the window ends up
+    // actually closing or being redirected to the tray by native
+    // Close to Tray (preventDefault() elsewhere doesn't stop this listener
+    // from running).
+    onClose: () => {
+      captureMessagePaneState(win);
+    },
+  };
 
-  // Capture the pane height whenever the window is about to close — this
-  // fires synchronously on the window itself (unlike quit-application-
-  // granted, which may arrive after the extension's own context has
-  // already started tearing down), and fires whether the window ends up
-  // actually closing or being redirected to the tray by native
-  // Close to Tray (preventDefault() elsewhere doesn't stop this listener
-  // from running).
-  win.addEventListener("close", () => {
-    captureMessagePaneState(win);
-  });
+  watchedWindows.set(win, handlers);
+  win.addEventListener("sizemodechange", handlers.onSizeModeChange);
+  win.addEventListener("close", handlers.onClose);
 }
+
+/**
+ * Remove the listeners attached by watchWindow() from every still-open
+ * watched window. Windows that were closed already are gone from the
+ * window manager (and their WeakMap entry with them).
+ */
+function unwatchAllWindows() {
+  for (const win of Services.wm.getEnumerator(WINDOW_TYPE_MAIL_3PANE)) {
+    const handlers = watchedWindows.get(win);
+    if (handlers) {
+      win.removeEventListener("sizemodechange", handlers.onSizeModeChange);
+      win.removeEventListener("close", handlers.onClose);
+      watchedWindows.delete(win);
+    }
+  }
+}
+
+/** The "domwindowopened" observer added by watchAllWindows() — kept in a
+ * module variable so onShutdown() can remove it again. */
+let newWindowObserver = null;
 
 /**
  * Start watching every currently open mail:3pane window, and any that open
@@ -662,20 +716,18 @@ function watchAllWindows() {
     watchWindow(win);
   }
 
-  Services.obs.addObserver(
-    {
-      observe(subject) {
-        const windowType =
-          subject.document?.documentElement?.getAttribute("windowtype");
-        if (windowType === WINDOW_TYPE_MAIL_3PANE) {
-          subject.addEventListener("load", () => watchWindow(subject), {
-            once: true,
-          });
-        }
-      },
+  newWindowObserver = {
+    observe(subject) {
+      const windowType =
+        subject.document?.documentElement?.getAttribute("windowtype");
+      if (windowType === WINDOW_TYPE_MAIL_3PANE) {
+        subject.addEventListener("load", () => watchWindow(subject), {
+          once: true,
+        });
+      }
     },
-    "domwindowopened"
-  );
+  };
+  Services.obs.addObserver(newWindowObserver, "domwindowopened");
 
   console.info(LOG_PREFIX, "Observers installed.");
 }
@@ -752,6 +804,10 @@ function hideOnStartup(win) {
   win.addEventListener("load", hideOnce, { once: true }); // safety net
 }
 
+/** The one-shot "domwindowopened" observer from watchStartup() — kept in a
+ * module variable so onShutdown() can remove it if it never fired. */
+let startupWindowObserver = null;
+
 /**
  * Hide the main window to the tray at startup: the current mail:3pane
  * window if one already exists, or the next one to open otherwise (the
@@ -765,17 +821,18 @@ function watchStartup() {
     return;
   }
 
-  const observer = {
+  startupWindowObserver = {
     observe(subject) {
       const windowType =
         subject.document?.documentElement?.getAttribute("windowtype");
       if (windowType === WINDOW_TYPE_MAIL_3PANE) {
-        Services.obs.removeObserver(observer, "domwindowopened");
+        Services.obs.removeObserver(startupWindowObserver, "domwindowopened");
+        startupWindowObserver = null;
         hideOnStartup(subject);
       }
     },
   };
-  Services.obs.addObserver(observer, "domwindowopened");
+  Services.obs.addObserver(startupWindowObserver, "domwindowopened");
 }
 
 var MinimizeToTray = class extends ExtensionCommon.ExtensionAPI {
@@ -856,6 +913,15 @@ var MinimizeToTray = class extends ExtensionCommon.ExtensionAPI {
       shutdownObserver = null;
       shutdownHandlerRegistered = false;
     }
+    if (newWindowObserver) {
+      Services.obs.removeObserver(newWindowObserver, "domwindowopened");
+      newWindowObserver = null;
+    }
+    if (startupWindowObserver) {
+      Services.obs.removeObserver(startupWindowObserver, "domwindowopened");
+      startupWindowObserver = null;
+    }
     uninstallMailNotificationHook();
+    unwatchAllWindows();
   }
 };

@@ -1,5 +1,30 @@
 # MinimizeToTray Restore
 
+[![Release](https://img.shields.io/github/v/release/Hanatarou/minimizetotray-restore)](https://github.com/Hanatarou/minimizetotray-restore/releases/latest)
+[![Build](https://img.shields.io/github/actions/workflow/status/Hanatarou/minimizetotray-restore/release.yml)](https://github.com/Hanatarou/minimizetotray-restore/actions)
+[![Downloads (all releases)](https://img.shields.io/github/downloads/Hanatarou/minimizetotray-restore/total?label=downloads%20%28all%29)](https://github.com/Hanatarou/minimizetotray-restore/releases)
+[![Downloads (latest release)](https://img.shields.io/github/downloads/Hanatarou/minimizetotray-restore/latest/total?label=downloads%20%28latest%29)](https://github.com/Hanatarou/minimizetotray-restore/releases/latest)
+[![License: MIT](https://img.shields.io/github/license/Hanatarou/minimizetotray-restore)](LICENSE)
+![Platform](https://img.shields.io/badge/platform-Windows-blue)
+![Language](https://img.shields.io/github/languages/top/Hanatarou/minimizetotray-restore)
+![Thunderbird](https://img.shields.io/badge/Thunderbird-154%2B-0a84ff)
+
+## 🤖 A Note on AI Usage
+
+I built this project alone, as a personal project, with substantial help from AI tools — Z.ai (GLM) and Claude. I believe knowledge only survives past us if it's shared, and that's the spirit behind releasing this for free.
+
+I did this on my own time and dime, covering all costs myself, without asking anyone for donations.
+
+Just as I respect opinions against the use of AI, I expect the use of AI here — as a tool that helped me build this project — to be respected in return. Disrespect toward this work, toward me, or toward anyone else involved will not be tolerated.
+
+All AI-generated content is reviewed and validated by me before being committed — I stand behind every decision to include code in this repository, regardless of how it was originally written. This project is still provided as-is, under the MIT license below, with no warranty of any kind.
+
+If you're uncomfortable with AI-assisted code for any reason, you are under no obligation to use, contribute to, or engage with this project. No hard feelings — just move on.
+
+For everyone else: bug reports and PRs are evaluated on their merits (does it work, is it correct), not on how the code was produced.
+
+## 📖 What it does
+
 Restores the classic "minimize to tray" behavior that Thunderbird removed in
 version 154, using the same native Windows OS integration API
 (`nsIMessengerWindowsIntegration`) Thunderbird itself uses internally for its
@@ -40,6 +65,11 @@ git clone https://github.com/Hanatarou/minimizetotray-restore.git
 cd minimizetotray-restore
 zip -r -X minimizetotray-restore.xpi manifest.json background.js _locales api options icons
 ```
+
+Release builds are produced automatically: pushing a `v*` tag (or publishing
+a release) triggers the [Build XPI](.github/workflows/release.yml) workflow,
+which attaches `minimizetotray-restore-v<version>.xpi` and its
+`minimizetotray-restore-v<version>.xpi.sha256.txt` checksum to the release.
 
 ## How it works
 
