@@ -22,6 +22,262 @@ const START_IN_TRAY_PREF = "mail.closeToTray.startInTray";
 const WINDOW_TYPE_MAIL_3PANE = "mail:3pane";
 const LOG_PREFIX = "MINIMIZETOTRAY-RESTORE:";
 
+// --- nsIMessengerOSIntegration compatibility layer ---------------------
+//
+// The signature of nsIMessengerOSIntegration.updateUnreadCount() changed in
+// Thunderbird 159 (mailnews/base/public/nsIMessengerOSIntegration.idl):
+//
+//   TB 154-158:  updateUnreadCount(unreadCount, unreadTooltip)
+//   TB 159+:     updateUnreadCount(unreadCount, unreadTooltip, badgeImgContainer)
+//
+// badgeImgContainer (an imgIContainer) is a mandatory IDL parameter, so on
+// TB 159+ a 2-argument call throws NS_ERROR_XPC_NOT_ENOUGH_ARGS — and on
+// TB 154-158 a 3-argument call throws NS_ERROR_XPC_TOO_MANY_ARGS. Either
+// failure was silent here (swallowed by the callers' try/catch), which is
+// why the tray unread badge (red dot) and the per-account tooltip stopped
+// working after Thunderbird 159: the native code only swaps the tray icon
+// to its "new mail" variant (IDI_MAILBIFF) when sUnreadCount — which only
+// updateUnreadCount() sets — is greater than zero.
+//
+// The Windows implementation ignores badgeImgContainer (see the comment on
+// nsMessengerWinIntegration::UpdateUnreadCount in
+// mailnews/base/src/nsMessengerWinIntegration.cpp — the red dot comes from
+// a pre-built resource icon, not from this image), so passing `null` is
+// correct and matches what Thunderbird's own MailNotificationManager does
+// when its badge renderer can't produce an image.
+//
+// We detect which arity the running Thunderbird supports on the first call
+// and remember it, so one build works on TB 154-158 AND TB 159+.
+
+let osIntegrationService = null;
+// null = not detected yet; true = 3-arg (TB 159+); false = 2-arg (TB 154-158).
+let osIntegrationTakesBadgeImage = null;
+
+function getOsIntegration() {
+  if (!osIntegrationService) {
+    osIntegrationService = Cc[
+      "@mozilla.org/messenger/osintegration;1"
+    ].getService(Ci.nsIMessengerOSIntegration);
+  }
+  return osIntegrationService;
+}
+
+/**
+ * Push an unread count + tooltip to the tray icon, transparently handling
+ * both the TB ≤ 158 (2-parameter) and TB 159+ (3-parameter) signatures of
+ * nsIMessengerOSIntegration.updateUnreadCount().
+ *
+ * @param {number} unreadCount
+ * @param {string} tooltip
+ */
+function pushUnreadCountToTray(unreadCount, tooltip) {
+  const osIntegration = getOsIntegration();
+
+  if (osIntegrationTakesBadgeImage !== false) {
+    try {
+      // TB 159+ signature. The image itself is irrelevant on Windows (the
+      // native tray code ignores it), so null is fine.
+      osIntegration.updateUnreadCount(unreadCount, tooltip, null);
+      if (osIntegrationTakesBadgeImage === null) {
+        console.info(
+          LOG_PREFIX,
+          "updateUnreadCount() accepted the 3-argument (TB 159+) signature."
+        );
+      }
+      osIntegrationTakesBadgeImage = true;
+      return;
+    } catch (ex) {
+      // Only the "too many arguments" error means we're on TB ≤ 158 and
+      // must fall back to the legacy 2-argument form. Anything else is a
+      // real failure and should surface to the caller.
+      if (ex.result !== Cr.NS_ERROR_XPC_TOO_MANY_ARGS) {
+        throw ex;
+      }
+      osIntegrationTakesBadgeImage = false;
+      console.info(
+        LOG_PREFIX,
+        "updateUnreadCount() rejected the 3-argument form — using the legacy 2-argument signature (TB ≤ 158)."
+      );
+    }
+  }
+
+  // Legacy TB 154-158 signature.
+  osIntegration.updateUnreadCount(unreadCount, tooltip);
+}
+
+// --- Windows taskbar overlay badge sync --------------------------------
+//
+// Since Thunderbird 159, on Windows, the native unread badge is drawn on
+// the *taskbar* icon (nsITaskbarOverlayIconController.setOverlayIcon(),
+// driven by mailnews/base/src/WinUnreadBadge.sys.mjs, with the numeric red
+// badge image rendered by the new SystemTrayBadgeManager.sys.mjs) — and
+// MailNotificationManager no longer writes the tray icon at all on Windows,
+// which makes THIS add-on the sole writer of the tray's unread state.
+//
+// The native taskbar badge is still fed by Thunderbird's own internal
+// unread count, which has been observed to get stuck and disagree with the
+// count this add-on computes. To keep both indicators consistent, every
+// push from the WebExtension side (and every re-assert after a native
+// write) also repaints the taskbar overlay through Thunderbird's own
+// WinUnreadBadge module — so the badge image, sizing and DPI handling stay
+// pixel-identical to the native one, with zero drawing code duplicated
+// here. WinUnreadBadge exists on every supported version (TB 154+); its
+// 3-argument form (which takes the badge imgIContainer, TB 159+) is
+// detected at runtime exactly like the tray call above, falling back to
+// the 2-argument form (which renders its own badge internally) on TB
+// 154-158.
+
+const SHOW_BADGE_PREF = "mail.biff.show_badge";
+
+let winUnreadBadgeModule = null;
+// null = not detected yet; true = 3-arg (TB 159+); false = 2-arg (TB ≤ 158).
+let winUnreadBadgeTakesImage = null;
+// The overlay state we last painted, so identical repaints are skipped.
+let lastTaskbarBadge = null; // { unreadCount, tooltip, showBadge }
+
+function getWinUnreadBadge() {
+  if (winUnreadBadgeModule === null) {
+    try {
+      winUnreadBadgeModule = ChromeUtils.importESModule(
+        "resource:///modules/WinUnreadBadge.sys.mjs"
+      ).WinUnreadBadge;
+    } catch (ex) {
+      winUnreadBadgeModule = false;
+      console.error(
+        LOG_PREFIX,
+        "WinUnreadBadge.sys.mjs could not be imported — taskbar badge sync disabled.",
+        ex
+      );
+    }
+  }
+  return winUnreadBadgeModule || null;
+}
+
+// SystemTrayBadgeManager only exists on TB 159+; on older versions the
+// legacy 2-argument WinUnreadBadge call renders its own badge internally.
+let systemTrayBadgeManager = null; // false = not available (TB ≤ 158).
+function getBadgeImage(unreadCount) {
+  if (systemTrayBadgeManager === null) {
+    try {
+      systemTrayBadgeManager = ChromeUtils.importESModule(
+        "resource:///modules/SystemTrayBadgeManager.sys.mjs"
+      ).SystemTrayBadgeManager;
+    } catch (ex) {
+      systemTrayBadgeManager = false;
+    }
+  }
+  if (!systemTrayBadgeManager) {
+    return null;
+  }
+  try {
+    return systemTrayBadgeManager.getBadge(unreadCount);
+  } catch (ex) {
+    console.error(
+      LOG_PREFIX,
+      "SystemTrayBadgeManager.getBadge() failed — clearing/skipping the taskbar overlay image.",
+      ex
+    );
+    return null;
+  }
+}
+
+/**
+ * Repaint the Windows taskbar overlay badge with our own unread count and
+ * tooltip, so the taskbar icon can't disagree with the tray icon.
+ *
+ * Honors Thunderbird's native mail.biff.show_badge pref (the same gate the
+ * native taskbar path uses): with the pref off, the overlay is cleared.
+ *
+ * @param {number} unreadCount
+ * @param {string} tooltip
+ * @param {boolean} [force] - Skip the "state unchanged" dedupe. Used by the
+ *   MailNotificationManager hook, which runs right after Thunderbird's own
+ *   badge write: even when the state we want looks identical to what we
+ *   pushed last time, the native write in between may have clobbered the
+ *   overlay (its own count and generic tooltip), so it must be repainted.
+ */
+async function pushBadgeToTaskbar(unreadCount, tooltip, force = false) {
+  // Mirror the native behavior for mail.biff.show_badge (on TB ≤ 158 the
+  // native caller zeroed the count before WinUnreadBadge; on TB 159+
+  // WinUnreadBadge checks the pref itself — doing it here covers both).
+  const showBadge = Services.prefs.getBoolPref(SHOW_BADGE_PREF, true);
+  const effectiveCount = showBadge ? Math.max(unreadCount, 0) : 0;
+  const effectiveTooltip = effectiveCount > 0 ? tooltip : "";
+
+  if (
+    !force &&
+    lastTaskbarBadge &&
+    lastTaskbarBadge.unreadCount === effectiveCount &&
+    lastTaskbarBadge.tooltip === effectiveTooltip &&
+    lastTaskbarBadge.showBadge === showBadge
+  ) {
+    return;
+  }
+
+  const winUnreadBadge = getWinUnreadBadge();
+  if (
+    !winUnreadBadge ||
+    typeof winUnreadBadge.updateUnreadCount !== "function"
+  ) {
+    return;
+  }
+
+  try {
+    if (winUnreadBadgeTakesImage !== false) {
+      // TB 159+ signature. The badge image comes from Thunderbird's own
+      // SystemTrayBadgeManager (same renderer the native badge uses).
+      const img = effectiveCount > 0 ? getBadgeImage(effectiveCount) : null;
+      if (effectiveCount > 0 && img === null && systemTrayBadgeManager === false) {
+        // The renderer module is unavailable on this Thunderbird build —
+        // leave the overlay untouched instead of passing null, which would
+        // CLEAR a badge the native code may have drawn correctly.
+        return;
+      }
+      try {
+        // A null image with a positive count clears the overlay — the same
+        // thing the native code does when its own badge renderer can't
+        // produce an image (e.g. no window to draw in), so this mirrors
+        // native behavior.
+        await winUnreadBadge.updateUnreadCount(
+          effectiveCount,
+          effectiveTooltip,
+          img
+        );
+        if (winUnreadBadgeTakesImage === null) {
+          console.info(
+            LOG_PREFIX,
+            "WinUnreadBadge.updateUnreadCount() accepted the 3-argument (TB 159+) signature."
+          );
+        }
+        winUnreadBadgeTakesImage = true;
+      } catch (ex) {
+        // Only "too many arguments" means we're on TB ≤ 158 and must fall
+        // back to the legacy 2-argument form. Anything else is a real
+        // failure and is logged by the outer catch.
+        if (ex.result !== Cr.NS_ERROR_XPC_TOO_MANY_ARGS) {
+          throw ex;
+        }
+        winUnreadBadgeTakesImage = false;
+        console.info(
+          LOG_PREFIX,
+          "WinUnreadBadge.updateUnreadCount() rejected the 3-argument form — using the legacy 2-argument signature (TB ≤ 158)."
+        );
+      }
+    }
+    if (winUnreadBadgeTakesImage === false) {
+      // Legacy TB 154-158 signature: WinUnreadBadge draws its own badge.
+      await winUnreadBadge.updateUnreadCount(effectiveCount, effectiveTooltip);
+    }
+    lastTaskbarBadge = {
+      unreadCount: effectiveCount,
+      tooltip: effectiveTooltip,
+      showBadge,
+    };
+  } catch (ex) {
+    console.error(LOG_PREFIX, "Failed to update the taskbar badge.", ex);
+  }
+}
+
 // --- Message pane layout workaround -----------------------------------
 //
 // Thunderbird has a bug (reproducible even with 100% native settings, no
@@ -114,11 +370,12 @@ function restoreMessagePaneStateIfNeeded() {
 }
 
 /**
- * The last tooltip pushed by the WebExtension side via updateTrayTooltip().
- * Re-applied every time we hide the window, and right after Thunderbird's
- * own MailNotificationManager finishes writing to the tray icon (see
- * installMailNotificationHook below) — both of which can otherwise leave
- * our custom per-account tooltip overwritten by its generic one.
+ * The last unread state pushed by the WebExtension side via
+ * updateTrayTooltip(). Re-applied every time we hide the window, and right
+ * after Thunderbird's own MailNotificationManager finishes its own badge
+ * write (see installMailNotificationHook below) — both of which can
+ * otherwise leave our custom per-account tooltip overwritten by its
+ * generic one, or the taskbar badge showing a count other than ours.
  */
 let cachedTooltip = null;
 
@@ -128,18 +385,27 @@ let cachedTooltip = null;
  * to the same nsIMessengerOSIntegration.updateUnreadCount() we do — with
  * its own generic tooltip, no per-account breakdown — in reaction to
  * folder changes and to the Windows "TaskbarCreated" broadcast (relayed as
- * the "windows-refresh-badge-tray" observer topic). Confirmed via live API
+ * the "refresh-badge-tray" observer topic, renamed from
+ * "windows-refresh-badge-tray" in TB 159). Confirmed via live API
  * tracing that it can do this several times in a row right at startup
  * while folders are still loading, each one able to silently overwrite our
  * own write. Guessing a fixed delay to write after it never proved
  * reliable, since its own update is async (it awaits
  * WinUnreadBadge.updateUnreadCount() first) with no fixed duration.
  *
+ * Since TB 159 on Windows its write goes through WinUnreadBadge (the
+ * taskbar overlay) and no longer touches the tray icon — but it still
+ * lands *after* ours in those paths, with its own count and tooltip, so
+ * both indicators can still be clobbered.
+ *
  * Instead of guessing, this patches MailNotificationManager's own
  * _updateUnreadCount() method (a plain, non-private instance method) so our
- * tooltip is re-applied immediately after every single one of its native
+ * state is re-applied immediately after every single one of its native
  * writes finishes — deterministically, with no timing assumption, no
- * matter how many times it runs or how long each run takes.
+ * matter how many times it runs or how long each run takes. Both the tray
+ * icon and the taskbar overlay are re-asserted (the latter with force,
+ * bypassing the dedupe, precisely because the native write in between may
+ * have clobbered the overlay even when our own state didn't change).
  */
 let mailNotificationHookInstalled = false;
 let mailNotificationManagerRef = null;
@@ -153,25 +419,40 @@ function installMailNotificationHook() {
       "resource:///modules/MailNotificationManager.sys.mjs"
     );
     mailNotificationManagerRef = MailNotificationManager;
+    // Guard against future Thunderbird refactors: if the method we patch is
+    // ever renamed or removed (e.g. turned into an ES private #method), fail
+    // visibly in the log and skip the hook instead of throwing here.
+    if (typeof MailNotificationManager._updateUnreadCount !== "function") {
+      console.error(
+        LOG_PREFIX,
+        "MailNotificationManager._updateUnreadCount() not found — internal API changed in this Thunderbird version; skipping the tooltip-reapply hook."
+      );
+      return;
+    }
     originalUpdateUnreadCount =
       MailNotificationManager._updateUnreadCount.bind(MailNotificationManager);
     MailNotificationManager._updateUnreadCount = async function (...args) {
       const result = await originalUpdateUnreadCount(...args);
       if (cachedTooltip) {
         try {
-          const osIntegration = Cc[
-            "@mozilla.org/messenger/osintegration;1"
-          ].getService(Ci.nsIMessengerOSIntegration);
-          osIntegration.updateUnreadCount(
+          pushUnreadCountToTray(
             cachedTooltip.unreadCount,
             cachedTooltip.tooltip
           );
+          // force = the native write in between may have repainted the
+          // overlay with its own (possibly stuck) count and generic
+          // tooltip, even when our own state didn't change.
+          await pushBadgeToTaskbar(
+            cachedTooltip.unreadCount,
+            cachedTooltip.tooltip,
+            true
+          );
           console.info(
             LOG_PREFIX,
-            "Reapplied cached tooltip right after MailNotificationManager's own write."
+            "Reapplied cached tray tooltip and taskbar badge right after MailNotificationManager's own write."
           );
         } catch (ex) {
-          console.error(LOG_PREFIX, "Failed to reapply tooltip.", ex);
+          console.error(LOG_PREFIX, "Failed to reapply badge state.", ex);
         }
       }
       return result;
@@ -195,7 +476,11 @@ function uninstallMailNotificationHook() {
   if (!mailNotificationHookInstalled) {
     return;
   }
-  mailNotificationManagerRef._updateUnreadCount = originalUpdateUnreadCount;
+  // Remove the patched method entirely so the prototype's original becomes
+  // active again — assigning the bound original back would leave an own
+  // property behind on the singleton (a subtle trace in another module's
+  // object).
+  delete mailNotificationManagerRef._updateUnreadCount;
   mailNotificationHookInstalled = false;
   mailNotificationManagerRef = null;
   originalUpdateUnreadCount = null;
@@ -317,10 +602,7 @@ function hideWindowToTray(win) {
     // "Thunderbird" tooltip, wiping out whatever custom tooltip we'd set —
     // reassert it right away instead of waiting for the next folder change.
     if (cachedTooltip) {
-      osIntegration.updateUnreadCount(
-        cachedTooltip.unreadCount,
-        cachedTooltip.tooltip
-      );
+      pushUnreadCountToTray(cachedTooltip.unreadCount, cachedTooltip.tooltip);
       console.info(LOG_PREFIX, "Reapplied cached tooltip after hiding.");
     } else {
       console.info(LOG_PREFIX, "No cached tooltip yet to reapply.");
@@ -535,10 +817,7 @@ var MinimizeToTray = class extends ExtensionCommon.ExtensionAPI {
         async updateTrayTooltip(unreadCount, tooltip) {
           cachedTooltip = { unreadCount, tooltip };
           try {
-            const osIntegration = Cc[
-              "@mozilla.org/messenger/osintegration;1"
-            ].getService(Ci.nsIMessengerOSIntegration);
-            osIntegration.updateUnreadCount(unreadCount, tooltip);
+            pushUnreadCountToTray(unreadCount, tooltip);
             console.info(
               LOG_PREFIX,
               `updateUnreadCount() called natively with count=${unreadCount}.`
@@ -546,6 +825,10 @@ var MinimizeToTray = class extends ExtensionCommon.ExtensionAPI {
           } catch (ex) {
             console.error(LOG_PREFIX, "Failed to update tray tooltip.", ex);
           }
+          // Keep the Windows taskbar overlay badge in sync with the same
+          // count (fire-and-forget: it does its own error handling and
+          // must never make the tray push above look failed).
+          pushBadgeToTaskbar(unreadCount, tooltip);
         },
       },
     };

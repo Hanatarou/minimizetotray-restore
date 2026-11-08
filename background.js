@@ -16,17 +16,33 @@ const LOG_PREFIX = "MINIMIZETOTRAY-RESTORE:";
  * tree, so this needs no extra API calls per folder besides getFolderInfo).
  * getFolderInfo() takes a folder id, not the full folder object.
  *
+ * Sibling folders are queried in parallel — on accounts with many folders
+ * this turns a long sequential round-trip chain into one batched wave,
+ * which matters because this whole walk runs on every folder-info change.
+ * A folder whose getFolderInfo() fails (e.g. momentarily detached IMAP
+ * folder mid-startup) counts as 0 instead of failing the whole summary —
+ * the next folder-info event will correct the total.
+ *
  * @param {object} folder - A real MailFolder (not an account's root
  *   pseudo-folder — getFolderInfo() doesn't support those).
  * @returns {Promise<number>}
  */
 async function sumFolderUnread(folder) {
-  const info = await browser.folders.getFolderInfo(folder.id);
-  let sum = info.unreadMessageCount || 0;
-  for (const sub of folder.subFolders ?? []) {
-    sum += await sumFolderUnread(sub);
+  let unread = 0;
+  try {
+    const info = await browser.folders.getFolderInfo(folder.id);
+    unread = info.unreadMessageCount || 0;
+  } catch (ex) {
+    console.warn(
+      LOG_PREFIX,
+      `getFolderInfo() failed for folder "${folder.name}" — counting it as 0.`,
+      ex
+    );
   }
-  return sum;
+  const subSums = await Promise.all(
+    (folder.subFolders ?? []).map(sub => sumFolderUnread(sub))
+  );
+  return unread + subSums.reduce((sum, n) => sum + n, 0);
 }
 
 /**
@@ -34,23 +50,35 @@ async function sumFolderUnread(folder) {
  * e.g. "work: 3\npersonal: 12". Windows' native tooltip is capped around
  * ~127 characters, so this is naturally limited to accounts that actually
  * have something to show.
+ *
+ * Accounts are summed in parallel (each one's folder tree is summed in
+ * parallel too, see sumFolderUnread), and the per-account lines are then
+ * assembled in the original accounts order, so the tooltip text stays
+ * deterministic despite the parallelism.
  */
 async function buildUnreadSummary() {
   const accounts = await browser.accounts.list(true);
+  const perAccount = await Promise.all(
+    accounts.map(async account => {
+      // account.rootFolder is a virtual container, not a real folder —
+      // getFolderInfo() doesn't support it, so sum its real subfolders
+      // (Inbox, Sent, etc.) instead.
+      const folderSums = await Promise.all(
+        (account.rootFolder.subFolders ?? []).map(folder =>
+          sumFolderUnread(folder)
+        )
+      );
+      const unread = folderSums.reduce((sum, n) => sum + n, 0);
+      console.info(LOG_PREFIX, `Account "${account.name}": ${unread} unread.`);
+      return { name: account.name, unread };
+    })
+  );
+
   const lines = [];
   let total = 0;
-
-  for (const account of accounts) {
-    // account.rootFolder is a virtual container, not a real folder —
-    // getFolderInfo() doesn't support it, so sum its real subfolders
-    // (Inbox, Sent, etc.) instead.
-    let unread = 0;
-    for (const folder of account.rootFolder.subFolders ?? []) {
-      unread += await sumFolderUnread(folder);
-    }
-    console.info(LOG_PREFIX, `Account "${account.name}": ${unread} unread.`);
+  for (const { name, unread } of perAccount) {
     if (unread > 0) {
-      lines.push(`${account.name}: ${unread}`);
+      lines.push(`${name}: ${unread}`);
       total += unread;
     }
   }
@@ -62,7 +90,25 @@ async function buildUnreadSummary() {
 }
 
 /**
- * Compute and push the tray tooltip immediately, with no debounce.
+ * The last state actually pushed to the native side — used to skip
+ * redundant updateTrayTooltip() round-trips. The ride-along scheduling
+ * above means a push is attempted for *every* folder-info event, but the
+ * vast majority of them end with the exact same total and tooltip (one
+ * new message touches one folder; every other account's line is
+ * unchanged). Each skipped push saves a full account/folder walk on the
+ * native side of updateTrayTooltip() too, and — more importantly — a
+ * redundant repaint of the tray icon and the taskbar overlay badge.
+ * Starts out null, so after an extension (re)start the first push always
+ * goes through and re-asserts the state.
+ */
+let lastPushedState = null; // { total, tooltip }
+
+/**
+ * Compute and push the tray tooltip (and taskbar badge) state.
+ *
+ * Pass { force: true } to bypass the "state unchanged" skip — used when
+ * the push is reacting to an explicit user action (e.g. toggling the
+ * tooltip option) rather than to a folder event.
  *
  * If the user has turned the custom tooltip text off, this still pushes our
  * own reliably-computed unread total (with an empty tooltip string, so
@@ -72,13 +118,28 @@ async function buildUnreadSummary() {
  * mail for some users, which would otherwise mean no badge at all while
  * this setting is off, even with genuine unread messages.
  */
-async function pushTooltipNow() {
+async function pushTooltipNow({ force = false } = {}) {
   try {
     const { showTooltip } = await browser.storage.local.get({
       showTooltip: true,
     });
     const { total, tooltip } = await buildUnreadSummary();
     const tooltipToUse = showTooltip ? tooltip : "";
+
+    if (
+      !force &&
+      lastPushedState &&
+      lastPushedState.total === total &&
+      lastPushedState.tooltip === tooltipToUse
+    ) {
+      console.info(
+        LOG_PREFIX,
+        `Unread state unchanged (total=${total}) — skipping redundant push.`
+      );
+      return;
+    }
+
+    lastPushedState = { total, tooltip: tooltipToUse };
     console.info(
       LOG_PREFIX,
       `Pushing tray tooltip. Total: ${total}. Tooltip: ${JSON.stringify(tooltipToUse)}`
@@ -100,7 +161,10 @@ async function pushTooltipNow() {
  * — including whichever one ends up being the last — means our tooltip
  * reliably lands right after each native update, the final one included.
  * The short delay just lets that cycle's own async chain
- * (MailNotificationManager awaits WinUnreadBadge) finish first.
+ * (MailNotificationManager awaits WinUnreadBadge) finish first. Redundant
+ * pushes that end up computing the exact same state are cheap now — they
+ * are dropped by pushTooltipNow()'s unchanged-state check before reaching
+ * the native side.
  */
 const RIDE_ALONG_DELAY_MS = 250;
 function scheduleTooltipRefresh() {
@@ -125,10 +189,12 @@ if (os === "win") {
   scheduleTooltipRefresh();
 
   // React immediately when the "show tooltip" checkbox is toggled in the
-  // options page, instead of waiting for the next folder change.
-  browser.runtime.onMessage.addListener((message) => {
+  // options page, instead of waiting for the next folder change. Forced,
+  // since the toggle itself changes what should be pushed even when the
+  // underlying unread counts didn't.
+  browser.runtime.onMessage.addListener(message => {
     if (message?.type === "showTooltipChanged") {
-      pushTooltipNow();
+      pushTooltipNow({ force: true });
     }
   });
 

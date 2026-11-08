@@ -38,7 +38,7 @@
         "name": "updateTrayTooltip",
         "type": "function",
         "async": true,
-        "description": "Sets the Windows tray icon's unread count badge and tooltip text, via nsIMessengerOSIntegration.updateUnreadCount() — the same native mechanism Thunderbird's own tray icon uses.",
+        "description": "Sets the Windows tray icon's unread count badge and tooltip text, via nsIMessengerOSIntegration.updateUnreadCount() — the same native mechanism Thunderbird's own tray icon uses. Also repaints the Windows taskbar overlay badge with the same count, through Thunderbird's own WinUnreadBadge module (using SystemTrayBadgeManager's badge image on TB 159+), so the taskbar and tray indicators always agree; honors the native mail.biff.show_badge pref.",
         "parameters": [
           { "name": "unreadCount", "type": "integer" },
           { "name": "tooltip", "type": "string" }
