@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.3.3
+
+- **The tray state is no longer marked as pushed before the native write
+  actually happens.** In `pushTooltipNow()`, `lastPushedState` was assigned
+  before `await browser.MinimizeToTray.updateTrayTooltip()`. If that call
+  rejected (e.g. the experiment context died mid-write), the state was
+  already recorded as pushed, so subsequent pushes with the same unread
+  state were silently skipped as "unchanged" — leaving a stale tray badge
+  and tooltip until the next folder change happened to alter the state. The
+  state is now recorded only after the write resolves, so the next folder
+  event retries the identical push instead.
+- **The message pane layout workaround now covers every open mail window.**
+  `restoreMessagePaneStateIfNeeded()` compared and restored only the most
+  recent `mail:3pane` window, so with multiple Thunderbird windows open the
+  others kept a reset thread pane / message pane split. Thunderbird itself
+  persists the splitter size once, in the XUL store, keyed by the
+  `messenger.xhtml` document — one shared height across all mail windows
+  and tabs (`PaneLayout` in `pane-layout.mjs`) — so the single-snapshot
+  model was already correct; the restore just has to walk every open
+  window, which it now does, with a per-window check and a summary log
+  line.
+
 ## 1.3.2
 
 - **Fixed the taskbar badge sync never painting on Thunderbird 154–158 while

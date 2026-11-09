@@ -139,12 +139,17 @@ async function pushTooltipNow({ force = false } = {}) {
       return;
     }
 
-    lastPushedState = { total, tooltip: tooltipToUse };
     console.info(
       LOG_PREFIX,
       `Pushing tray tooltip. Total: ${total}. Tooltip: ${JSON.stringify(tooltipToUse)}`
     );
     await browser.MinimizeToTray.updateTrayTooltip(total, tooltipToUse);
+    // Only mark the state as pushed AFTER the native write actually went
+    // through: if the call rejects (e.g. the experiment context died
+    // mid-write), the next folder event must retry this exact same push
+    // instead of silently skipping it as "unchanged" until the unread
+    // state happens to change again.
+    lastPushedState = { total, tooltip: tooltipToUse };
   } catch (ex) {
     console.error(LOG_PREFIX, "Failed to refresh tray tooltip.", ex);
   }

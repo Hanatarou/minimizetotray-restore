@@ -356,7 +356,15 @@ function captureMessagePaneState(win) {
 /**
  * Compare the current #threadPane height against the last known-good
  * snapshot, and re-apply it (live, with !important, matching how
- * Thunderbird itself sets it) if they differ.
+ * Thunderbird itself sets it) where they differ.
+ *
+ * Checks EVERY open mail:3pane window, not just the most recent one.
+ * Thunderbird persists the splitter size once, in the XUL store, keyed by
+ * the messenger.xhtml document — one shared height across all mail windows
+ * and tabs (see PaneLayout in pane-layout.mjs) — so the single-snapshot
+ * model is correct by design, and every open window has to be checked:
+ * with multiple windows the most recent one alone is not representative of
+ * the state the others were restored with at startup.
  */
 function restoreMessagePaneStateIfNeeded() {
   const height = Services.prefs.getStringPref(PANE_SNAPSHOT_PREF, "");
@@ -364,32 +372,51 @@ function restoreMessagePaneStateIfNeeded() {
     return; // Nothing captured yet.
   }
 
-  try {
-    const win = Services.wm.getMostRecentWindow(WINDOW_TYPE_MAIL_3PANE);
-    const el = getThreadPaneElement(win);
-    if (!el) {
+  let checked = 0;
+  let restored = 0;
+  for (const win of Services.wm.getEnumerator(WINDOW_TYPE_MAIL_3PANE)) {
+    try {
+      const el = getThreadPaneElement(win);
+      if (!el) {
+        // Window still loading (or no current 3-pane tab) — nothing to
+        // check in this one yet.
+        continue;
+      }
+      checked++;
+
+      if (el.style.height === height) {
+        continue; // Already matches, nothing to fix.
+      }
+
       console.info(
         LOG_PREFIX,
-        "Could not find #threadPane to check/restore its height."
+        "Thread pane height looks wrong, restoring.",
+        "Was:",
+        el.style.height,
+        "Restoring to:",
+        height
       );
-      return;
+      el.style.setProperty("height", height, "important");
+      restored++;
+    } catch (ex) {
+      console.error(
+        LOG_PREFIX,
+        "Failed to restore thread pane height.",
+        ex
+      );
     }
+  }
 
-    if (el.style.height === height) {
-      return; // Already matches, nothing to fix.
-    }
-
+  if (checked === 0) {
     console.info(
       LOG_PREFIX,
-      "Thread pane height looks wrong, restoring.",
-      "Was:",
-      el.style.height,
-      "Restoring to:",
-      height
+      "No loaded mail:3pane window with a #threadPane to check/restore yet."
     );
-    el.style.setProperty("height", height, "important");
-  } catch (ex) {
-    console.error(LOG_PREFIX, "Failed to restore thread pane height.", ex);
+  } else if (restored > 0) {
+    console.info(
+      LOG_PREFIX,
+      `Restored thread pane height in ${restored} of ${checked} window(s).`
+    );
   }
 }
 
